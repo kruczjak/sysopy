@@ -9,27 +9,13 @@ void List_destroy(List *list)
 {
     LIST_FOREACH(list, first, next, cur) {
         if(cur->prev) {
+            free(cur->value);
             free(cur->prev);
         }
     }
 
     free(list->last);
     free(list);
-}
-
-
-void List_clear(List *list)
-{
-    LIST_FOREACH(list, first, next, cur) {
-        free(cur->value);
-    }
-}
-
-
-void List_clear_destroy(List *list)
-{
-    List_clear(list);
-    List_destroy(list);
 }
 
 
@@ -48,22 +34,21 @@ void List_push(List *list, struct info *value)
         list->last = node;
     }
 
-    list->count++;
-
 }
 
 struct info *List_pop(List *list)
 {
     ListNode *node = list->last;
-    return node != NULL ? List_remove(list, node) : NULL;
+    if (node != NULL) {
+      List_remove(list, node);
+      return node->value;
+    } else return NULL;
 }
 
-struct info * List_remove(List *list, ListNode *node)
+void List_remove(List *list, ListNode *node)
 {
-    struct info *result = NULL;
-
     if (list->first==NULL || list ->last==NULL || node == NULL)
-      return NULL;
+      return;
 
     if(node == list->first && node == list->last) {
         list->first = NULL;
@@ -81,7 +66,6 @@ struct info * List_remove(List *list, ListNode *node)
         before->next = after;
     }
 
-    list->count--;
     result = node->value;
     free(node);
 }
@@ -89,14 +73,14 @@ struct info * List_remove(List *list, ListNode *node)
 /*
  * Finding after name
  */
-struct info * List_find(List * list, char * name) {
+ListNode * List_find(List * list, char * name) {
   ListNode * node = list->first;
-  while(name!=node->value->firstName && node->next!=NULL && node!=NULL) {
+  while(name!=node->value->lastName && node->next!=NULL && node!=NULL) {
     node = node -> next;
   }
-  return node->value;
+  return node;
 }
 
-struct info * List_sort(List * list) {
+void List_sort(List * list) {
   ListNode * node = list -> first;
 }

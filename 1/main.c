@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
   data.lastName = "Kruczek";
   data.birthDate = "01.01.1990";
   data.email = "kruczjak@gmail.com";
-  data.phone = 794038166;
+  data.phone = 88888888;
   data.address = "ul. Budryka 6, Kraków 33-333";
   List_push(list, &data);
 

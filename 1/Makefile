@@ -1,6 +1,6 @@
 IDIR =.
 CC=gcc
-CFLAGS=-I$(IDIR)
+CFLAGS=-I$(IDIR) -Wall -pedantic -std=c11
 
 ODIR=.
 LDIR =.
