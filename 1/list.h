@@ -38,9 +38,9 @@ void List_destroy(List *list);
  */
 void List_push(List *list, struct info *value);
 /**
- * Usunięcie elementu z końca
+ * Usunięcie elementu z końca i zwrócenie danych
  */
-struct info *List_pop(List *list);
+struct info List_pop(List *list);
 /**
  * Wyszukiwanie po nazwisku
  */
@@ -53,9 +53,4 @@ void List_sort(List * list);
  * Usunięcie określonego elementu
  */
 void List_remove(List *list, ListNode *node);
-
-#define LIST_FOREACH(L, S, M, V) ListNode *_node = NULL;\
-    ListNode *V = NULL;\
-    for(V = _node = L->S; _node != NULL; V = _node = _node->M)
-
 #endif

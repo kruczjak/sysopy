@@ -7,10 +7,12 @@ List *List_create()
 
 void List_destroy(List *list)
 {
-    LIST_FOREACH(list, first, next, cur) {
-        if(cur->prev) {
-            free(cur->value);
-            free(cur->prev);
+
+    while(list->next!=NULL) {
+      list=list->next;
+        if(list->prev) {
+            free(list->value);
+            free(list->prev);
         }
     }
 
@@ -36,19 +38,18 @@ void List_push(List *list, struct info *value)
 
 }
 
-struct info *List_pop(List *list)
+struct info List_pop(List *list)
 {
     ListNode *node = list->last;
     if (node != NULL) {
+      struct info data = *node->value;
       List_remove(list, node);
-      return node->value;
+      return data;
     } else return NULL;
 }
 
 void List_remove(List *list, ListNode *node)
 {
-    if (list->first==NULL || list ->last==NULL || node == NULL)
-      return;
 
     if(node == list->first && node == list->last) {
         list->first = NULL;
@@ -66,7 +67,7 @@ void List_remove(List *list, ListNode *node)
         before->next = after;
     }
 
-    result = node->value;
+    free(node->value);
     free(node);
 }
 
