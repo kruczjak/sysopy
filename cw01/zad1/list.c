@@ -43,6 +43,17 @@ void List_push(List *list, struct info *value)
 
 }
 
+void List_add(List * list, const char * firstName, const char * lastName, const char * birthDate, const char * email, int phone, const char * address) {
+  struct info data;
+  data.firstName = firstName;
+  data.lastName = lastName;
+  data.birthDate = birthDate;
+  data.email = email;
+  data.phone = phone;
+  data.address = address;
+  List_push(list, &data);
+}
+
 struct info List_pop(List *list)
 {
     ListNode *node = list->last;
@@ -97,39 +108,38 @@ static ListNode * sortList(ListNode * node) {
   if(node == NULL || node->next == NULL)
       return node; // the node is sorted.
 
-  //replace largest node with the first :
+  //replace smallest node with the first :
 
-  //1- find largest node :
-  ListNode *curr, *largest, *prev, *largestPrev;
+  //1- find smallest node :
+  ListNode *curr, *smallest, *prev, *smallestPrev;
   curr = node;
-  largest = node;
+  smallest = node;
   prev = node;
-  largestPrev = node;
+  smallestPrev = node;
   while(curr != NULL) {
-          if(strcmp(curr->value->lastName,largest->value->lastName) > 0 ) {
-              largestPrev = prev;
-              largest = curr;
+          if(strcmp(curr->value->lastName,smallest->value->lastName) < 0 ) {
+              smallestPrev = prev;
+              smallest = curr;
           }
           prev = curr;
           curr = curr->next;
 
       }
-  //largest node is in largest.
 
-  //2- switching firt node and largest node :
+  //2- switching firt node and smallest node :
   ListNode * tmp;
-  if(largest != node)
+  if(smallest != node)
   {
-      largestPrev->next = node;
+      smallestPrev->next = node;
       tmp = node->next;
-      node->next = largest->next;
-      largest->next = tmp;
+      node->next = smallest->next;
+      smallest->next = tmp;
   }
 
-  // now largest is the first node of the node.
+  // now smallest is the first node of the node.
 
   // calling the function again with the sub node :
   //            node minus its first node :
-  largest->next = sortList(largest->next);
-  return largest;
+  smallest->next = sortList(smallest->next);
+  return smallest;
 }

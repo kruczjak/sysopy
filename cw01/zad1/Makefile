@@ -13,4 +13,4 @@ liblist.so: list.c
 
 .PHONY: clean
 clean:
-	rm -f *.o *~ core
+	rm -f *.o *~ *.a *.so

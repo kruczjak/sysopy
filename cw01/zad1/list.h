@@ -38,6 +38,10 @@ void List_destroy(List *list);
  */
 void List_push(List *list, struct info *value);
 /**
+ * Dodanie elementu na koniec
+ */
+void List_add(List * list, const char * firstName, const char * lastName, const char * birthDate, const char * email, int phone, const char * address);
+/**
  * Usunięcie elementu z końca i zwrócenie danych
  */
 struct info List_pop(List *list);
