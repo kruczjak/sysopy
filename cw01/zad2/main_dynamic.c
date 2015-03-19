@@ -9,7 +9,7 @@ void (*fList_add)(List*, const char*, const char*, const char*, const char*, int
 List * (*fList_create)();
 void (*fList_destroy)(List*);
 void (*fList_remove)(List*, ListNode*);
-ListNode* (*fList_search)(List*, const char *);
+ListNode * (*fList_find)(List*, const char *);
 void (*fList_sort)(List*);
 
 //time
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
   *(void **)(&fList_create) = dlsym(lib,"List_create");
   *(void **)(&fList_destroy) = dlsym(lib,"List_destroy");
   *(void **)(&fList_remove) = dlsym(lib,"List_remove");
-  *(void **)(&fList_search) = dlsym(lib,"List_search");
+  *(void **)(&fList_find) = dlsym(lib,"List_find");
   *(void **)(&fList_sort) = dlsym(lib,"List_sort");
 
   List * list = (*fList_create)();
@@ -76,6 +76,10 @@ int main(int argc, char **argv) {
   (*fList_sort)(list);
   printf("Usuniecie i sortowanie:\n");
   print_times();
-
+  (*fList_remove)(list, (*fList_find)(list, "Kruczek"));
+  (*fList_sort)(list);
+  (*fList_destroy)(list);
+  printf("Usunięcie wyszukanego, posortowanie i usunięcie całej listy\n");
+  print_times();
   return 0;
 }

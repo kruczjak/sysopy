@@ -1,9 +1,7 @@
 #include "list.h"
 #include <string.h>
 
-
 static ListNode * sortList(ListNode * node);
-
 
 List *List_create()
 {
@@ -16,7 +14,6 @@ void List_destroy(List *list)
     while(node->next!=NULL) {
       node=node->next;
         if(node->prev) {
-            free(node->value);
             free(node->prev);
         }
     }
@@ -84,12 +81,11 @@ void List_remove(List *list, ListNode *node)
         before->next = after;
     }
 
-    free(node->value);
     free(node);
 }
 
 /*
- * Finding after name
+ * Finding after LastName
  */
 ListNode * List_find(List * list, char * name) {
   ListNode * node = list->first;
@@ -106,11 +102,8 @@ void List_sort(List * list) {
 static ListNode * sortList(ListNode * node) {
 
   if(node == NULL || node->next == NULL)
-      return node; // the node is sorted.
+      return node; // zwroc posortowany node
 
-  //replace smallest node with the first :
-
-  //1- find smallest node :
   ListNode *curr, *smallest, *prev, *smallestPrev;
   curr = node;
   smallest = node;
@@ -123,10 +116,9 @@ static ListNode * sortList(ListNode * node) {
           }
           prev = curr;
           curr = curr->next;
-
       }
 
-  //2- switching firt node and smallest node :
+  //zamien pierwszy z najmniejszym
   ListNode * tmp;
   if(smallest != node)
   {
@@ -136,10 +128,6 @@ static ListNode * sortList(ListNode * node) {
       smallest->next = tmp;
   }
 
-  // now smallest is the first node of the node.
-
-  // calling the function again with the sub node :
-  //            node minus its first node :
   smallest->next = sortList(smallest->next);
   return smallest;
 }

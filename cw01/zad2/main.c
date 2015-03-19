@@ -58,6 +58,11 @@ int main(int argc, char **argv) {
   List_sort(list);
   printf("Usuniecie i sortowanie:\n");
   print_times();
-
+  List_remove(list, List_find(list, "Kruczek"));
+  List_sort(list);
+  List_destroy(list);
+  printf("Usunięcie wyszukanego, posortowanie i usunięcie całej listy\n");
+  print_times();
+  
   return 0;
 }
