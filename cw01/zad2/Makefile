@@ -20,6 +20,14 @@ shared_main: liblist.so
 dynamic_main: liblist.so
 	$(CC) -Wl,-rpath . $(CFLAGS) main_dynamic.c -o dynamic_main -ldl
 
+test: static_main shared_main dynamic_main
+	@echo "Static:"
+	./static_main
+	@echo "Main:"
+	./shared_main
+	@echo "Dynamic:"
+	./dynamic_main
+
 .PHONY: clean
 clean:
 	rm -f *.o *~ *.a *.so static_main shared_main dynamic_main
