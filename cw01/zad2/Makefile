@@ -18,7 +18,7 @@ shared_main: liblist.so
 	$(CC) -Wl,-rpath . $(CFLAGS) main.c -o shared_main -L. -llist
 
 dynamic_main: liblist.so
-	$(CC) -Wl,-rpath . $(CFLAGS) test2.c -o dynamic_main -ldl
+	$(CC) -Wl,-rpath . $(CFLAGS) main_dynamic.c -o dynamic_main -ldl
 
 .PHONY: clean
 clean:
