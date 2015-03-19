@@ -5,7 +5,7 @@
 #include <time.h>
 #include "list.h"
 
-void (*fList_add)(List*, const char*, const char*, const char*, const char*, int, const char*);
+void (*fList_add)(List*, const char*, const char*, const char*, const char*, long, const char*);
 List * (*fList_create)();
 void (*fList_destroy)(List*);
 void (*fList_remove)(List*, ListNode*);

@@ -21,7 +21,7 @@ struct info {
   const char * lastName;
   const char * birthDate;
   const char * email;
-  int phone;
+  long phone;
   const char * address;
 };
 
@@ -40,7 +40,7 @@ void List_push(List *list, struct info *value);
 /**
  * Dodanie elementu na koniec
  */
-void List_add(List * list, const char * firstName, const char * lastName, const char * birthDate, const char * email, int phone, const char * address);
+void List_add(List * list, const char * firstName, const char * lastName, const char * birthDate, const char * email, long phone, const char * address);
 /**
  * Usunięcie elementu z końca i zwrócenie danych
  */
