@@ -1,4 +1,9 @@
-#include <list.h>
+#include "list.h"
+#include <string.h>
+
+
+static ListNode * sortList(ListNode * node);
+
 
 List *List_create()
 {
@@ -7,12 +12,12 @@ List *List_create()
 
 void List_destroy(List *list)
 {
-
-    while(list->next!=NULL) {
-      list=list->next;
-        if(list->prev) {
-            free(list->value);
-            free(list->prev);
+    ListNode * node = list->first;
+    while(node->next!=NULL) {
+      node=node->next;
+        if(node->prev) {
+            free(node->value);
+            free(node->prev);
         }
     }
 
@@ -41,11 +46,12 @@ void List_push(List *list, struct info *value)
 struct info List_pop(List *list)
 {
     ListNode *node = list->last;
+    struct info data;
     if (node != NULL) {
-      struct info data = *node->value;
+      data = *node->value;
       List_remove(list, node);
       return data;
-    } else return NULL;
+    } else return data;
 }
 
 void List_remove(List *list, ListNode *node)
@@ -83,5 +89,47 @@ ListNode * List_find(List * list, char * name) {
 }
 
 void List_sort(List * list) {
-  ListNode * node = list -> first;
+  list->first = sortList(list -> first);
+}
+
+static ListNode * sortList(ListNode * node) {
+
+  if(node == NULL || node->next == NULL)
+      return node; // the node is sorted.
+
+  //replace largest node with the first :
+
+  //1- find largest node :
+  ListNode *curr, *largest, *prev, *largestPrev;
+  curr = node;
+  largest = node;
+  prev = node;
+  largestPrev = node;
+  while(curr != NULL) {
+          if(strcmp(curr->value->lastName,largest->value->lastName) > 0 ) {
+              largestPrev = prev;
+              largest = curr;
+          }
+          prev = curr;
+          curr = curr->next;
+
+      }
+  //largest node is in largest.
+
+  //2- switching firt node and largest node :
+  ListNode * tmp;
+  if(largest != node)
+  {
+      largestPrev->next = node;
+      tmp = node->next;
+      node->next = largest->next;
+      largest->next = tmp;
+  }
+
+  // now largest is the first node of the node.
+
+  // calling the function again with the sub node :
+  //            node minus its first node :
+  largest->next = sortList(largest->next);
+  return largest;
 }
