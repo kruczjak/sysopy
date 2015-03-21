@@ -7,7 +7,18 @@
 #include <sys/types.h>
 #include <ftw.h>
 #include <string.h>
+#include <stdbool.h>
 
+bool check_char_int(char * to_check) {
+  for (int i=0; i < strlen(to_check); i++)
+    if(to_check[i] < 48 || to_check[i] > 57)
+      return false;
+  return true;
+}
+void exit_error(int type, char * message) {
+  printf(message);
+  exit(type);
+}
 char * concat(char * first, char * middle, char * last) {
   char * ret = (char *) malloc(1+strlen(first)+strlen(middle)+strlen(last));
   strcpy(ret, first);
@@ -17,29 +28,25 @@ char * concat(char * first, char * middle, char * last) {
 }
 
 int main(int argc, char **argv) {
-  if (argc!=3) {
-    perror("Bad number of arguments (should be 2)");
-    exit(1);
-  }
+  if (argc!=3) exit_error(1, "Bad number of arguments (should be 2)");
+
   DIR *dir;
   struct dirent *dp;
   struct stat fileStat;
   char * path = argv[1];
   char * perm = argv[2];
-  if (strlen(perm)!=3)
 
-  if ((dir = opendir(path)) == NULL) {
-    perror("Cannot open dir");
-    exit(1);
-  }
+  if (strlen(perm)!=3 || !check_char_int(perm)) exit_error(1, "Bad permissions");
+
+  if ((dir = opendir(path)) == NULL) exit_error(1,"Cannot open dir");
 
   printf("File name:    \tFile size:       \tTime:      \n");
   while ((dp = readdir(dir)) != NULL) {
     char * tmp;
-    if (path[strlen(path)-1]!='/') tmp = concat(path,"/",dp->d_name);
-    else tmp = concat(path, "", dp->d_name);
+    if (path[strlen(path)-1]!='/') tmp = strcat(strcat(path,"/"), dp->d_name);
+    else tmp = strcat(path,dp->d_name);
 
-    stat(tmp,&fileStat);
+    if (stat(tmp,&fileStat) <1) continue;
     free(tmp);
 
     if(!S_ISREG(fileStat.st_mode)) continue;
@@ -48,4 +55,5 @@ int main(int argc, char **argv) {
   }
 
   closedir(dir);
+  return 0;
 }
