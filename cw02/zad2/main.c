@@ -8,6 +8,7 @@
 #include <ftw.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 
 bool perm_cmp(int perm, mode_t st_mode) {
   char mode[7];
@@ -48,13 +49,13 @@ int main(int argc, char **argv) {
 
   if ((dir = opendir(path)) == NULL) exit_error(1,"Cannot open dir\n");
 
-  printf("File name:    \tFile size:       \tTime:      \n");
+  printf("File name:    \tFile size:\tTime:      \n");
   while ((dp = readdir(dir)) != NULL) {
     char * tmp;
     if (path[strlen(path)-1]!='/') tmp = concat(path,"/", dp->d_name);
     else tmp = concat(path,"", dp->d_name);
 
-    if (stat(tmp,&fileStat) == -1) {
+    if (lstat(tmp,&fileStat) == -1) {
       free(tmp);
       continue;
     }
@@ -62,7 +63,9 @@ int main(int argc, char **argv) {
 
     if(!S_ISREG(fileStat.st_mode) || !perm_cmp(atoi(perm), fileStat.st_mode)) continue;
 
-    printf("%s\t%dB\t%ld\n", dp->d_name, (int) fileStat.st_size, fileStat.st_mtime);
+    char buf[80];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&fileStat.st_mtime));
+    printf("%s\t%dB\t%s\n", dp->d_name, (int) fileStat.st_size, buf);
   }
 
   closedir(dir);
