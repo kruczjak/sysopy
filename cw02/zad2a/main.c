@@ -36,20 +36,13 @@ char * concat(char * first, char * middle, char * last) {
   return ret;
 }
 
-int main(int argc, char **argv) {
-  if (argc!=3) exit_error(1, "Bad number of arguments (should be 2)\n");
-
+void list_dir(char * path, int perm) {
   DIR *dir;
   struct dirent *dp;
   struct stat fileStat;
-  char * path = argv[1];
-  char * perm = argv[2];
 
-  if (strlen(perm)!=3 || !check_char_int(perm)) exit_error(1, "Bad permissions\n");
+  if ((dir = opendir(path)) == NULL) return;
 
-  if ((dir = opendir(path)) == NULL) exit_error(1,"Cannot open dir\n");
-
-  printf("File name:    \tFile size:\tTime:      \n");
   while ((dp = readdir(dir)) != NULL) {
     char * tmp;
     if (path[strlen(path)-1]!='/') tmp = concat(path,"/", dp->d_name);
@@ -59,9 +52,10 @@ int main(int argc, char **argv) {
       free(tmp);
       continue;
     }
-    free(tmp);
 
-    if(!S_ISREG(fileStat.st_mode) || !perm_cmp(atoi(perm), fileStat.st_mode)) continue;
+    if(S_ISDIR(fileStat.st_mode) && strcmp(dp->d_name,".")!=0 && strcmp(dp->d_name,"..")!=0) list_dir(tmp, perm);
+    free(tmp);
+    if(!S_ISREG(fileStat.st_mode) || !perm_cmp(perm, fileStat.st_mode)) continue;
 
     char buf[80];
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&fileStat.st_mtime));
@@ -69,5 +63,16 @@ int main(int argc, char **argv) {
   }
 
   closedir(dir);
+}
+
+int main(int argc, char **argv) {
+  if (argc!=3) exit_error(1, "Bad number of arguments (should be 2)\n");
+
+  char * path = argv[1];
+  char * perm = argv[2];
+
+  if (strlen(perm)!=3 || !check_char_int(perm)) exit_error(1, "Bad permissions\n");
+  printf("File name:    \tFile size:\tTime:      \n");
+  list_dir(path, atoi(perm));
   return 0;
 }
