@@ -40,11 +40,12 @@ int main(int argc, char **argv) {
   }
   int curr_rec = 0;
   int curr_pos = 0;
-  while(curr_rec < size) {
-    while(curr_pos < length) {
+  while(curr_rec < size - 1) {
 
-      char randomletter =   rand() % 255;
-      fprintf(fp, "%c", randomletter);
+    curr_pos = 0;
+    while(curr_pos < length - 1) {
+
+      fprintf(fp, "%c", rand() % 255);
       curr_pos += 1;
     }
     fprintf(fp, "\n");

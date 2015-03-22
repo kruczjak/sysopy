@@ -1,14 +1,5 @@
-CC = gcc
-CFLAGS = -Wall -pedantic -std=c11
+sort_sys:
+	gcc -Wall -std=c11 -pedantic sort_sys.c -o sort_sys
 
-all: generator
-
-main:
-	$(CC) $(CFLAGS) main.c -o $@.run
-
-generator:
-	$(CC) $(CFLAGS) gen.c -o $@.run
-
-.PHONY: clean
 clean:
-	rm -f *.o *~ *.a *.so *.run
+	rm -f sort_sys
