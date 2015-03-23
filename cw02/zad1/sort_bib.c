@@ -8,7 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-
+#include <stdbool.h>
 
 static struct tms start_tms;
 static struct tms last_tms;
@@ -54,40 +54,40 @@ void replace(FILE * handle, int length, int first, int second, char * buff1, cha
 
 
 void sort(FILE * handle, int length) {
-    int prev = 0;
-    int next = 0;
 
     char * buff1;
     char * buff2;
-
-    set_start_time();
-    int ch, count=0;
-
+    int count = 0;
+    char ch;
     do
     {
         ch = fgetc(handle);
         if(ch == '\n')
-        	count++;
+          count++;
     } while (ch != EOF);
-    if(ch != '\n' && count != 0)
-      count++;
 
-    for(prev = 0; prev < count; prev += 1) {
-        buff1 = (char *) malloc(length * sizeof(char));
-        fseek(handle, length*prev, SEEK_SET);
-        fread(buff1, 1, length, handle);
-        for(next = prev; next < count; next += 1) {
-            fseek(handle, length*next, SEEK_SET);
-            buff2 = (char *) malloc(length * sizeof(char));
-            fread(buff2, 1, length, handle);
-            if (buff1[0] > buff2[0]) {
-                replace(handle, length, prev, next, buff1, buff2);
-            }
-            free(buff2);
+    buff1 = (char *) malloc(length * sizeof(char));
+    buff2 = (char *) malloc(length * sizeof(char));
+    bool swapped = true;
+    set_start_time();
+    
+    int j = 0;
+    while(swapped) {
+      swapped = false;
+      j+=1;
+        for(int i = 0; i < count - j; i += 1) {
+          fseek(handle, length*i, SEEK_SET);
+          fread(buff1, 1, length, handle);
+          fseek(handle, length*(i+1), SEEK_SET);
+          fread(buff2, 1, length, handle);
+          if (buff1[0] > buff2[0]) {
+              replace(handle, length, i, i+1, buff1, buff2);
+              swapped=true;
+          }
         }
-        free(buff1);
     }
-
+    free(buff1);
+    free(buff2);
 }
 
 
@@ -117,4 +117,22 @@ int main(int argc, char **argv) {
     print_diff();
     fclose(handle);
     exit(EXIT_SUCCESS);
+}
+
+void bubbleSort(int arr[], int n) {
+      bool swapped = true;
+      int j = 0;
+      int tmp;
+      while (swapped) {
+            swapped = false;
+            j++;
+            for (int i = 0; i < n - j; i++) {
+                  if (arr[i] > arr[i + 1]) {
+                        tmp = arr[i];
+                        arr[i] = arr[i + 1];
+                        arr[i + 1] = tmp;
+                        swapped = true;
+                  }
+            }
+      }
 }
