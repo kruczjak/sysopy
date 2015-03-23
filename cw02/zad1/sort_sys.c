@@ -44,10 +44,10 @@ void set_start_time() {
 
 void replace(int handle, int length, int first, int second, char * buff1, char * buff2) {
   lseek(handle, length*first, SEEK_SET);
-  write(handle, &buff2, length);
+  write(handle, buff2, length);
 
   lseek(handle, length*second, SEEK_SET);
-  write(handle, &buff1, length);
+  write(handle, buff1, length);
 }
 
 
@@ -70,27 +70,13 @@ void sort(int handle, int length) {
         read(handle, &buff1, length);
         lseek(handle, length*(i+1), SEEK_SET);
         read(handle, &buff2, length);
-        printf("%s %s", buff1, buff2);
+        printf("buf1:%s buf2:%s", buff1, buff2);
         if (buff1[0] > buff2[0]) {
             replace(handle, length, i, i+1, buff1, buff2);
             swapped=true;
         }
       }
   }
-  // free(buff1);
-  // free(buff2);
-  //
-  // for(prev = 0; prev < count; prev += 1) {
-  //   lseek(handle, length*prev, SEEK_SET);
-  //   read(handle, &buff1, length);
-  //   for(next = prev; next < count; next += 1) {
-  //     lseek(handle, length*next, SEEK_SET);
-  //     read(handle, &buff2, length);
-  //     if (buff1[0] > buff2[0]) {
-  //       replace(handle, length, prev, next, buff1, buff2);
-  //     }
-  //   }
-  // }
 }
 
 
