@@ -10,37 +10,23 @@
 #include <stdbool.h>
 
 static struct tms start_tms;
-static struct tms last_tms;
 static struct tms a_tms;
 clock_t start_time;
-clock_t last_time;
 clock_t a_time;
-
-
 
 void print_diff() {
   times(&a_tms);
   a_time = clock();
-  printf("real\tlastdiff: %.12lf, startdiff: %.12lf\n",
-          (double) (a_time - last_time) / CLOCKS_PER_SEC, (double) (a_time - start_time) / CLOCKS_PER_SEC);
-  printf("user\tlastdiff: %.12lf, startdiff: %.12lf\n",
-          (double) (a_tms.tms_utime - last_tms.tms_utime) / CLOCKS_PER_SEC, (double) (a_tms.tms_utime - start_tms.tms_utime) / CLOCKS_PER_SEC);
-  printf("system\tlastdiff: %.12lf, startdiff: %.12lf\n",
-          (double) (a_tms.tms_stime - last_tms.tms_stime) / CLOCKS_PER_SEC, (double) (a_tms.tms_stime - start_tms.tms_stime) / CLOCKS_PER_SEC);
+  printf("real\tstartdiff: %.12lf\n", (double) (a_time - start_time) / CLOCKS_PER_SEC);
+  printf("user\tstartdiff: %.12lf\n", (double) (a_tms.tms_utime - start_tms.tms_utime) / CLOCKS_PER_SEC);
+  printf("system\tstartdiff: %.12lf\n", (double) (a_tms.tms_stime - start_tms.tms_stime) / CLOCKS_PER_SEC);
   printf("--------------------------------\n");
-  last_time = a_time;
-  last_tms = a_tms;
 }
-
-
 
 void set_start_time() {
   times(&start_tms);
-  last_tms = start_tms;
-  start_time = last_time = clock();
+  start_time = clock();
 }
-
-
 
 void replace(int handle, int length, int first, int second, char * buff1, char * buff2) {
   lseek(handle, length*first, SEEK_SET);
@@ -58,10 +44,11 @@ void sort(int handle, int length) {
   char buff2[length];
   int count = lseek(handle, 0L, SEEK_END) / length;
 
-  set_start_time();
-
   bool swapped = true;
   int j = 0;
+
+  set_start_time();
+
   while(swapped) {
     swapped = false;
     j+=1;
@@ -70,7 +57,6 @@ void sort(int handle, int length) {
         read(handle, &buff1, length);
         lseek(handle, length*(i+1), SEEK_SET);
         read(handle, &buff2, length);
-        printf("buf1:%s buf2:%s", buff1, buff2);
         if (buff1[0] > buff2[0]) {
             replace(handle, length, i, i+1, buff1, buff2);
             swapped=true;

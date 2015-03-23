@@ -11,37 +11,23 @@
 #include <stdbool.h>
 
 static struct tms start_tms;
-static struct tms last_tms;
 static struct tms a_tms;
 clock_t start_time;
-clock_t last_time;
 clock_t a_time;
 
-
-
 void print_diff() {
-    times(&a_tms);
-    a_time = clock();
-    printf("real\tlastdiff: %.12lf, startdiff: %.12lf\n",
-            (double) (a_time - last_time) / CLOCKS_PER_SEC, (double) (a_time - start_time) / CLOCKS_PER_SEC);
-    printf("user\tlastdiff: %.12lf, startdiff: %.12lf\n",
-            (double) (a_tms.tms_utime - last_tms.tms_utime) / CLOCKS_PER_SEC, (double) (a_tms.tms_utime - start_tms.tms_utime) / CLOCKS_PER_SEC);
-    printf("system\tlastdiff: %.12lf, startdiff: %.12lf\n",
-            (double) (a_tms.tms_stime - last_tms.tms_stime) / CLOCKS_PER_SEC, (double) (a_tms.tms_stime - start_tms.tms_stime) / CLOCKS_PER_SEC);
-    printf("--------------------------------\n");
-    last_time = a_time;
-    last_tms = a_tms;
+  times(&a_tms);
+  a_time = clock();
+  printf("real\tstartdiff: %.12lf\n", (double) (a_time - start_time) / CLOCKS_PER_SEC);
+  printf("user\tstartdiff: %.12lf\n", (double) (a_tms.tms_utime - start_tms.tms_utime) / CLOCKS_PER_SEC);
+  printf("system\tstartdiff: %.12lf\n", (double) (a_tms.tms_stime - start_tms.tms_stime) / CLOCKS_PER_SEC);
+  printf("--------------------------------\n");
 }
-
-
 
 void set_start_time() {
-    times(&start_tms);
-    last_tms = start_tms;
-    start_time = last_time = clock();
+  times(&start_tms);
+  start_time = clock();
 }
-
-
 
 void replace(FILE * handle, int length, int first, int second, char * buff1, char * buff2) {
     fseek(handle, length*first, SEEK_SET);
@@ -69,9 +55,10 @@ void sort(FILE * handle, int length) {
     buff1 = (char *) malloc(length * sizeof(char));
     buff2 = (char *) malloc(length * sizeof(char));
     bool swapped = true;
-    set_start_time();
-    
     int j = 0;
+    
+    set_start_time();
+
     while(swapped) {
       swapped = false;
       j+=1;
