@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 
 static struct tms start_tms;
@@ -57,10 +58,9 @@ void sort(int handle, int length) {
 
   char buff1[length];
   char buff2[length];
+  int count = lseek(handle, 0L, SEEK_END) / length;
 
   set_start_time();
-
-  int count = 100;
 
   for(prev = 0; prev < count; prev += 1) {
     lseek(handle, length*prev, SEEK_SET);
