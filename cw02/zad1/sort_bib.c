@@ -45,10 +45,10 @@ void set_start_time() {
 
 void replace(FILE * handle, int length, int first, int second, char * buff1, char * buff2) {
     fseek(handle, length*first, SEEK_SET);
-    fwrite(&buff2,1, length, handle);
+    fwrite(buff2,1, length, handle);
 
     fseek(handle, length*second, SEEK_SET);
-    fwrite(&buff1, 1, length, handle);
+    fwrite(buff1, 1, length, handle);
 }
 
 
@@ -67,11 +67,11 @@ void sort(FILE * handle, int length) {
     for(prev = 0; prev < count; prev += 1) {
         buff1 = (char *) malloc(length * sizeof(char));
         fseek(handle, length*prev, SEEK_SET);
-        fread(&buff1, 1, length, handle);
+        fread(buff1, 1, length, handle);
         for(next = prev; next < count; next += 1) {
             fseek(handle, length*next, SEEK_SET);
             buff2 = (char *) malloc(length * sizeof(char));
-            fread(&buff2, 1, length, handle);
+            fread(buff2, 1, length, handle);
             if (buff1[0] > buff2[0]) {
                 replace(handle, length, prev, next, buff1, buff2);
             }
@@ -79,6 +79,7 @@ void sort(FILE * handle, int length) {
         }
         free(buff1);
     }
+
 }
 
 
@@ -105,7 +106,6 @@ int main(int argc, char **argv) {
     FILE * handle = fopen(path, "r+");
 
     sort(handle, length);
-
     print_diff();
     fclose(handle);
     exit(EXIT_SUCCESS);
