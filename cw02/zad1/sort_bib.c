@@ -61,8 +61,16 @@ void sort(FILE * handle, int length) {
     char * buff2;
 
     set_start_time();
+    int ch, count=0;
 
-    int count = 100;
+    do
+    {
+        ch = fgetc(handle);
+        if(ch == '\n')
+        	count++;
+    } while (ch != EOF);
+    if(ch != '\n' && count != 0)
+      count++;
 
     for(prev = 0; prev < count; prev += 1) {
         buff1 = (char *) malloc(length * sizeof(char));
