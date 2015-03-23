@@ -2,11 +2,9 @@
 #include <sys/times.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
 
 
@@ -57,27 +55,23 @@ void sort(int handle, int length) {
   int prev = 0;
   int next = 0;
 
-  char * buff1;
-  char * buff2;
+  char buff1[length];
+  char buff2[length];
 
   set_start_time();
 
   int count = 100;
 
   for(prev = 0; prev < count; prev += 1) {
-    buff1 = (char *) malloc(length * sizeof(char));
     lseek(handle, length*prev, SEEK_SET);
     read(handle, &buff1, length);
     for(next = prev; next < count; next += 1) {
       lseek(handle, length*next, SEEK_SET);
-      buff2 = (char *) malloc(length * sizeof(char));
       read(handle, &buff2, length);
       if (buff1[0] > buff2[0]) {
         replace(handle, length, prev, next, buff1, buff2);
       }
-      free(buff2);
     }
-    free(buff1);
   }
 }
 
@@ -95,7 +89,7 @@ int main(int argc, char **argv) {
   for(int i = 0; i < strlen(len); i++) {
     char curr = len[i];
     if ( curr < 48 || curr > 57 ) {
-      perror("Bad argument - length of record should be integer");
+      perror("Bad argument - length od record should be integer");
       exit(1);
     }
   }
