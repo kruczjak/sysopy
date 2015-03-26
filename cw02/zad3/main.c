@@ -1,24 +1,18 @@
-#include <sys/types.h>
-#include <dirent.h>
-#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <ftw.h>
 #include <string.h>
 #include <stdbool.h>
-#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-
+//colors in terminal
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
 #define KGRN  "\x1B[32m"
 #define KYEL  "\x1B[33m"
 
 #define LOCKED_INFO "It seems that another process has locked this byte\n\n"
+
 int fcntl_struct(int,int,int,off_t,int,off_t);
 int getLock(int, long int);
 
@@ -153,7 +147,7 @@ void exit_error(int type, char * message) {
 }
 void print_menu() {
 
-  printf("--------------------------------------\n
+  printf("--------------------------------------\n"
 	"%sHello :)\n\n1.Set read lock on byte\n2.Set write lock on byte\n3.List locked bytes\n"
   "4.Remove lock\n5.Read byte\n6.Write byte\n\nChoose option: ", KNRM);
 }
@@ -196,6 +190,5 @@ int main(int argc, char **argv) {
     }
   }
 
-
-  return 0;
+  return EXIT_SUCCESS;
 }
