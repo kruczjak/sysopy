@@ -36,13 +36,13 @@ void set_start_time() {
 
 void replace(int handle, int length, int first, int second, char * buff1, char * buff2) {
   my_lseek(handle, length*first, SEEK_SET);
-  if (write(handle, buff2, length) < 0) {
+  if (write(handle, buff2, length) != length) {
     perror("Error while writing to file");
     exit(EXIT_FAILURE);
   }
 
   my_lseek(handle, length*second, SEEK_SET);
-  if (write(handle, buff1, length) < 0) {
+  if (write(handle, buff1, length) < !=length) {
     perror("Error while writing to file");
     exit(EXIT_FAILURE);
   }
@@ -66,12 +66,12 @@ void sort(int handle, int length) {
     j+=1;
       for(int i = 0; i < count - j; i += 1) {
         my_lseek(handle, length*i, SEEK_SET);
-        if (read(handle, &buff1, length) < 0) {
+        if (read(handle, &buff1, length) != length) {
           perror("Error while reading file");
           exit(EXIT_FAILURE);
         }
         my_lseek(handle, length*(i+1), SEEK_SET);
-        if (read(handle, &buff2, length) < 0) {
+        if (read(handle, &buff2, length) != length) {
           perror("Error while reading file");
           exit(EXIT_FAILURE);
         }
