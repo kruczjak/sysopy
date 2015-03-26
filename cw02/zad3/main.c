@@ -24,7 +24,7 @@ void removeLock(int handle) {
 		if(errno == EACCES || errno == EAGAIN)
 			printf("%s%s", KRED, LOCKED_INFO);
 		else {
-			printf(KRED"\nError in function w_lock() -> fcntl()\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
+			printf(KRED"\nError\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
 		}
 		return;
 	}
@@ -48,7 +48,7 @@ int getLock(int handle, long int byt) {
 	lock.l_whence = SEEK_SET;
 
 	if((fcntl(handle, F_GETLK, &lock)) == -1){
-		printf(KRED"\nError in function is_locked() -> fcntl()\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
+		printf(KRED"\nError\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
 		return -1;
 	}
 	return lock.l_type; // F_WRCLK / F_RDLCK
@@ -64,16 +64,17 @@ void listLocks(int handle) {
 
 	while(!end_of_loop){
 		if((fcntl(handle, F_GETLK, &lock)) == -1){
-			printf(KRED"\nError in function list_locks() -> fcntl()\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
+			printf(KRED"\nError\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
       return;
 		}
+
 		if(lock.l_type != F_UNLCK){
 			if(lock.l_type == F_WRLCK)
 				lock_type = "write-";
 			else if(lock.l_type == F_RDLCK)
 				lock_type = "read-";
-			else if(lock.l_type == F_WRLCK)
-				lock_type = "";
+			// else if(lock.l_type == F_WRLCK)
+			// 	lock_type = "";
 
 			printf(KYEL"PID %d has %slocked byte %d\n", (int) lock.l_pid, lock_type, (int) lock.l_start);
 			lock.l_len = 0;
@@ -90,6 +91,10 @@ void readByte(int handle) {
   long int byt;
   printf("Set byte number: ");
   scanf("%ld", &byt);
+	if((getLock(handle, byt)) == F_WRLCK){
+		printf(KRED LOCKED_INFO);
+		return;
+	}
   lseek(handle, byt, SEEK_SET);
   read(handle, &buf, 1);
   printf("%sByte %ld = %c\n\n", KGRN, byt, buf);
@@ -102,7 +107,7 @@ void readLock(int handle) {
 		if(errno == EACCES || errno == EAGAIN)
 			printf(KRED LOCKED_INFO);
 		else {
-			printf("\nError in function w_lock() -> fcntl()\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
+			printf("\nError\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
 		}
     return;
   }
@@ -131,7 +136,7 @@ void writeLock(int handle) {
 		if(errno == EACCES || errno == EAGAIN)
 			printf(KRED LOCKED_INFO);
 		else {
-			printf("\nError in function w_lock() -> fcntl()\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
+			printf("\nError\nMessage: \"%s\", errno: %d\n\n", strerror(errno), errno);
 		}
     return;
   }
