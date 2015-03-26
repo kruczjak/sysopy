@@ -1,11 +1,9 @@
 #include <sys/types.h>
 #include <dirent.h>
-#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <ftw.h>
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
@@ -25,7 +23,7 @@ bool check_char_int(char * to_check) {
   return true;
 }
 void exit_error(int type, char * message) {
-  printf(message);
+  perror(message);
   exit(type);
 }
 char * concat(char * first, char * middle, char * last) {

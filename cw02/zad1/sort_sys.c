@@ -42,7 +42,7 @@ void replace(int handle, int length, int first, int second, char * buff1, char *
   }
 
   my_lseek(handle, length*second, SEEK_SET);
-  if (write(handle, buff1, length) < !=length) {
+  if (write(handle, buff1, length) !=length) {
     perror("Error while writing to file");
     exit(EXIT_FAILURE);
   }
