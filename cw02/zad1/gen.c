@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
   for(int i = 0; i < strlen(si); i++) {
     char curr = si[i];
     if ( curr < 48 || curr > 57 ) {
-      printf("Bad argument - number of records should be integer\n");
+      printf("Bad argument - lines number should be integer\n");
       exit(EXIT_FAILURE);
     }
   }
@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   for(int i = 0; i < strlen(len); i++) {
     char curr = len[i];
     if ( curr < 48 || curr > 57 ) {
-      printf("Bad argument - length of record should be integer\n");
+      printf("Bad argument - lines length should be integer\n");
       exit(EXIT_FAILURE);
     }
   }
@@ -36,21 +36,15 @@ int main(int argc, char **argv) {
   srand(time(NULL));
   fp = fopen("file.txt","w");
   if (fp == NULL) {
-    perror("Error while opening file");
+    perror("Error while opening the file");
     exit(EXIT_FAILURE);
   }
 
-  int curr_rec = 0;
-  int curr_pos = 0;
-
-  while(curr_rec < size) {
-    curr_pos = 0;
-    while(curr_pos < length - 1) {
+  for(int i = 0; i < size; i++) {
+    for(int j= 0;j < length - 1;j++) {
       fprintf(fp, "%c", 'A' + (rand() % 26));
-      curr_pos += 1;
     }
     fprintf(fp, "\n");
-    curr_rec += 1;
   }
   fclose(fp);
   exit(EXIT_SUCCESS);
