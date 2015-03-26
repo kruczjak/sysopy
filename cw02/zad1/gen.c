@@ -6,7 +6,7 @@
 int main(int argc, char **argv) {
 
   if (argc!=3) {
-    printf("Bad number of arguments (should be 2). Example: generator.run <lines_number> <line_length>\n");
+    printf("Not good arguments. Example: generator.run <lines_number> <line_length>\n");
     exit(EXIT_FAILURE);
   }
 
@@ -15,16 +15,16 @@ int main(int argc, char **argv) {
 
   for(int i = 0; i < strlen(si); i++) {
     char curr = si[i];
-    if ( curr < 48 || curr > 57 ) {
-      printf("Bad argument - lines number should be integer\n");
+    if ( curr < '0' || curr > '9' ) {
+      printf("Not good arguments - lines should be integer\n");
       exit(EXIT_FAILURE);
     }
   }
 
   for(int i = 0; i < strlen(len); i++) {
     char curr = len[i];
-    if ( curr < 48 || curr > 57 ) {
-      printf("Bad argument - lines length should be integer\n");
+    if ( curr < '0' || curr > '9' ) {
+      printf("Not good arguments - lines length should be integer\n");
       exit(EXIT_FAILURE);
     }
   }
