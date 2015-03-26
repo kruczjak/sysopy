@@ -153,7 +153,7 @@ void exit_error(int type, char * message) {
 }
 void print_menu() {
 
-  printf("--------------------------------------\n"
+  printf("--------------------------------------\n
 	"%sHello :)\n\n1.Set read lock on byte\n2.Set write lock on byte\n3.List locked bytes\n"
   "4.Remove lock\n5.Read byte\n6.Write byte\n\nChoose option: ", KNRM);
 }

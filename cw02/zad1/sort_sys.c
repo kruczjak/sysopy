@@ -14,6 +14,12 @@ static struct tms a_tms;
 clock_t start_time;
 clock_t a_time;
 
+void my_lseek(int handle, int byte, int flags) {
+  if (lseek(handle, byte, flags)==-1) {
+    perror("Error while lseeking");
+    exit(EXIT_FAILURE);
+  }
+}
 void print_diff() {
   times(&a_tms);
   a_time = clock();
@@ -29,11 +35,17 @@ void set_start_time() {
 }
 
 void replace(int handle, int length, int first, int second, char * buff1, char * buff2) {
-  lseek(handle, length*first, SEEK_SET);
-  write(handle, buff2, length);
+  my_lseek(handle, length*first, SEEK_SET);
+  if (write(handle, buff2, length) < 0) {
+    perror("Error while writing to file");
+    exit(EXIT_FAILURE);
+  }
 
-  lseek(handle, length*second, SEEK_SET);
-  write(handle, buff1, length);
+  my_lseek(handle, length*second, SEEK_SET);
+  if (write(handle, buff1, length) < 0) {
+    perror("Error while writing to file");
+    exit(EXIT_FAILURE);
+  }
 }
 
 
@@ -53,10 +65,16 @@ void sort(int handle, int length) {
     swapped = false;
     j+=1;
       for(int i = 0; i < count - j; i += 1) {
-        lseek(handle, length*i, SEEK_SET);
-        read(handle, &buff1, length);
-        lseek(handle, length*(i+1), SEEK_SET);
-        read(handle, &buff2, length);
+        my_lseek(handle, length*i, SEEK_SET);
+        if (read(handle, &buff1, length) < 0) {
+          perror("Error while reading file");
+          exit(EXIT_FAILURE);
+        }
+        my_lseek(handle, length*(i+1), SEEK_SET);
+        if (read(handle, &buff2, length) < 0) {
+          perror("Error while reading file");
+          exit(EXIT_FAILURE);
+        }
         if (buff1[0] > buff2[0]) {
             replace(handle, length, i, i+1, buff1, buff2);
             swapped=true;
@@ -87,7 +105,10 @@ int main(int argc, char **argv) {
   int length = atoi(len);
 
   int handle = open(path, O_RDWR);
-
+  if (handle<0) {
+    perror("Error while opening file");
+    exit(EXIT_FAILURE);
+  }
   sort(handle, length);
 
   print_diff();

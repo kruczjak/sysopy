@@ -14,42 +14,42 @@ generator:
 
 test: all
 	@echo "4bajty 100"
-	./generator.run 4 100
+	./generator.run 100 4
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 4
 	./sort_bib.run file2.txt 4
 	@echo "4bajty 1000"
-	./generator.run 4 1000
+	./generator.run 1000 4
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 4
 	./sort_bib.run file2.txt 4
 	@echo "512bajtów 100"
-	./generator.run 512 100
+	./generator.run 100 512
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 512
 	./sort_bib.run file2.txt 512
 	@echo "512bajtów 1000"
-	./generator.run 8 1000
+	./generator.run 1000 512
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 512
 	./sort_bib.run file2.txt 512
 	@echo "4096bajty 10"
-	./generator.run 4096 10
+	./generator.run 10 4096
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 4096
 	./sort_bib.run file2.txt 4096
 	@echo "4096bajty 100"
-	./generator.run 4096 100
+	./generator.run 100 4096
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 4096
 	./sort_bib.run file2.txt 4096
 	@echo "8192bajtów 10"
-	./generator.run 8192 10
+	./generator.run 10 8192
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 8192
 	./sort_bib.run file2.txt 8192
 	@echo "8192bajtów 100"
-	./generator.run 8192 100
+	./generator.run 100 8192
 	cp file.txt file2.txt
 	./sort_sys.run file.txt 8192
 	./sort_bib.run file2.txt 8192

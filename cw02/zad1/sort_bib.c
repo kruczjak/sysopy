@@ -15,6 +15,12 @@ static struct tms a_tms;
 clock_t start_time;
 clock_t a_time;
 
+void my_fseek(FILE * handle, int byte, int flag) {
+  if (fseek(handle, byte, flag)==-1) {
+    perror("Error while fseeking file");
+    exit(EXIT_FAILURE);
+  }
+}
 void print_diff() {
   times(&a_tms);
   a_time = clock();
@@ -30,11 +36,17 @@ void set_start_time() {
 }
 
 void replace(FILE * handle, int length, int first, int second, char * buff1, char * buff2) {
-    fseek(handle, length*first, SEEK_SET);
-    fwrite(buff2,1, length, handle);
+    my_fseek(handle, length*first, SEEK_SET);
+    if (fwrite(buff2,1, length, handle)<0) {
+      perror("Error while writing file");
+      exit(EXIT_FAILURE);
+    }
 
-    fseek(handle, length*second, SEEK_SET);
-    fwrite(buff1, 1, length, handle);
+    my_fseek(handle, length*second, SEEK_SET);
+    if (fwrite(buff1, 1, length, handle)<0) {
+      perror("Error while writing file");
+      exit(EXIT_FAILURE);
+    }
 }
 
 
@@ -47,31 +59,37 @@ void sort(FILE * handle, int length) {
     char ch;
     do
     {
-        ch = fgetc(handle);
-        if(ch == '\n')
-          count++;
+      ch = fgetc(handle);
+      if(ch == '\n')
+        count++;
     } while (ch != EOF);
 
     buff1 = (char *) malloc(length * sizeof(char));
     buff2 = (char *) malloc(length * sizeof(char));
     bool swapped = true;
     int j = 0;
-    
+
     set_start_time();
 
     while(swapped) {
       swapped = false;
       j+=1;
-        for(int i = 0; i < count - j; i += 1) {
-          fseek(handle, length*i, SEEK_SET);
-          fread(buff1, 1, length, handle);
-          fseek(handle, length*(i+1), SEEK_SET);
-          fread(buff2, 1, length, handle);
-          if (buff1[0] > buff2[0]) {
-              replace(handle, length, i, i+1, buff1, buff2);
-              swapped=true;
-          }
+      for(int i = 0; i < count - j; i += 1) {
+        my_fseek(handle, length*i, SEEK_SET);
+        if (fread(buff1, 1, length, handle)<0) {
+          perror("Error while reading");
+          exit(EXIT_FAILURE);
         }
+        my_fseek(handle, length*(i+1), SEEK_SET);
+        if (fread(buff2, 1, length, handle)<0) {
+          perror("Error while reading");
+          exit(EXIT_FAILURE);
+        }
+        if (buff1[0] > buff2[0]) {
+            replace(handle, length, i, i+1, buff1, buff2);
+            swapped=true;
+        }
+      }
     }
     free(buff1);
     free(buff2);
@@ -81,7 +99,7 @@ void sort(FILE * handle, int length) {
 
 int main(int argc, char **argv) {
     if (argc!=3) {
-        perror("Bad number of arguments (should be 2)");
+        printf("Bad number of arguments (should be 2). Example: sort_bib.run <file> <line_length>");
         exit(1);
     }
 
@@ -91,7 +109,7 @@ int main(int argc, char **argv) {
     for(int i = 0; i < strlen(len); i++) {
         char curr = len[i];
         if ( curr < 48 || curr > 57 ) {
-            perror("Bad argument - length od record should be integer");
+            printf("Bad argument - length od record should be integer\n");
             exit(1);
         }
     }
@@ -99,27 +117,13 @@ int main(int argc, char **argv) {
     int length = atoi(len);
 
     FILE * handle = fopen(path, "r+");
+    if (handle == NULL) {
+      perror("Error opening file");
+      exit(EXIT_FAILURE);
+    }
 
     sort(handle, length);
     print_diff();
     fclose(handle);
     exit(EXIT_SUCCESS);
-}
-
-void bubbleSort(int arr[], int n) {
-      bool swapped = true;
-      int j = 0;
-      int tmp;
-      while (swapped) {
-            swapped = false;
-            j++;
-            for (int i = 0; i < n - j; i++) {
-                  if (arr[i] > arr[i + 1]) {
-                        tmp = arr[i];
-                        arr[i] = arr[i + 1];
-                        arr[i + 1] = tmp;
-                        swapped = true;
-                  }
-            }
-      }
 }
