@@ -45,7 +45,7 @@ static int display_info(const char* fpath, const struct stat *sb, int typeFlag) 
 }
 
 int main(int argc, char **argv) {
-  if (argc!=3) exit_error(1, "Bad number of arguments (should be 2)\n");
+  if (argc!=3) exit_error(1, "Bad number of arguments (should be 2) main.run <path> <permission>\n");
 
   char * path = argv[1];
   char * perm = argv[2];

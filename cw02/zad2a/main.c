@@ -23,7 +23,7 @@ bool check_char_int(char * to_check) {
   return true;
 }
 void exit_error(int type, char * message) {
-  perror(message);
+  printf(message);
   exit(type);
 }
 char * concat(char * first, char * middle, char * last) {
@@ -64,7 +64,7 @@ void list_dir(char * path, int perm) {
 }
 
 int main(int argc, char **argv) {
-  if (argc!=3) exit_error(1, "Bad number of arguments (should be 2)\n");
+  if (argc!=3) exit_error(1, "Bad number of arguments (should be 2) main.run <path> <permissions>\n");
 
   char * path = argv[1];
   char * perm = argv[2];

@@ -157,7 +157,7 @@ void print_menu() {
   "4.Remove lock\n5.Read byte\n6.Write byte\n\nChoose option: ", KNRM);
 }
 int main(int argc, char **argv) {
-  if (argc!=2) exit_error(1, "Bad number of arguments (should be 1)\n");
+  if (argc!=2) exit_error(1, "Bad number of arguments (should be 1) main.run <file_path>\n");
   int handle = open(argv[1], O_RDWR);
   if(handle < 0)
         exit_error(1, "Cannot open file\n");
