@@ -1,11 +1,11 @@
 CC = gcc
 CFLAGS = -Wall -pedantic -std=gnu11
 
-all: main
+all: file_counter
 
-main:
-	$(CC) $(CFLAGS) main.c -o $@.run
+file_counter:
+	$(CC) $(CFLAGS) file_counter.c -o $@
 
 .PHONY: clean
 clean:
-	rm -f *.o *~ *.a *.so *.run *.txt
+	rm -f *.o *~ *.a *.so file_counter
