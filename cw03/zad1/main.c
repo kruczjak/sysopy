@@ -115,8 +115,8 @@ clock_t clone_vfork(int N) {
 }
 
 int main(int argc, char ** argv) {
-  FILE * f = fopen("data.txt");
-  int N = 100000;
+  // FILE * f = fopen("data.txt");
+  int N = atoi(argv[1]);
   wrapper(&forkTime, N, "fork");
   wrapper(&vforkTime, N, "vfork");
   wrapper(&clone_fork, N, "cloneFork");
@@ -134,7 +134,7 @@ void wrapper(clock_t (*testing)(int N), int N, char * desc) {
   clock_t time = (*testing)(N);
   end =  times(&end_tms);
 
-    
+
   printf("%s\n", desc);
   printf("Counter: %d\n", counter);
   printf("Child real: %lfs\n", (double) time / CLK);

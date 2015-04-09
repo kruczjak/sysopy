@@ -9,3 +9,4 @@ main:
 .PHONY: clean
 clean:
 	rm -f *.o *~ *.a *.so *.run *.txt
+
