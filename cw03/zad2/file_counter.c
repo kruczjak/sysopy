@@ -1,5 +1,5 @@
 
-void list_dir(char * path, int perm) {
+void list_dir(char * path, int wait) {
   DIR *dir;
   struct dirent *dp;
   struct stat fileStat;
@@ -16,7 +16,9 @@ void list_dir(char * path, int perm) {
       continue;
     }
 
-    if(S_ISDIR(fileStat.st_mode) && strcmp(dp->d_name,".")!=0 && strcmp(dp->d_name,"..")!=0) list_dir(tmp, perm);
+    if(S_ISDIR(fileStat.st_mode) && strcmp(dp->d_name,".")!=0 && strcmp(dp->d_name,"..")!=0) {
+
+    }
     free(tmp);
   }
 
@@ -24,6 +26,12 @@ void list_dir(char * path, int perm) {
 }
 
 int main(int argc, char ** argv) {
-
+  if (argc == 2) {
+    list_dir(argv[1], 0);
+  } else if (argc == 3 && argv[1][0] == '-' && argv[1][1] == 'w') {
+    list_dir(argv[2], 1);
+  } else {
+    printf("Bad arguments: file_counter [-w] <folder_path>");
+  }
   return 0;
 }
