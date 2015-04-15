@@ -8,10 +8,13 @@
 #include <sys/wait.h>
 static int loop;
 static int number;
-
+static int sending;
 void addSignals(int signo, siginfo_t * inf, void * ptr) {
-	number++;
-	kill(inf->si_pid, SIGUSR1);
+	if (sending==0) {
+		number++;
+		kill(inf->si_pid, SIGUSR1);
+	} else
+		loop = 0;
 }
 
 void endAdding(int signo) {
@@ -43,12 +46,13 @@ int main(int argc, char ** argv) {
   fscanf(fp, "%d", &PID);
   printf("C: PPID %d\n", PID);
   //end getting
-
+	sending = 0;
   kill(PID, SIGUSR2);
   while (loop) {
     pause();
   }
-
+	loop = 1;
+	sending = 1;
   for(int i=0; i<number; i++) {
      kill(PID, SIGUSR1);
      while(loop) {

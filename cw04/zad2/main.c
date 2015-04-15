@@ -6,14 +6,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
-
+pid_t child;
 static int loop;
 static int number;
-
+static int sendingP;
 void addSignals(int signo) {
   printf("P: Got\n");
-  loop= 0;
-  number++;
+  //odebrano
+  if (sendingP==0) {
+		number++;
+		kill(child, SIGUSR1);
+	} else
+		loop = 0;
 }
 
 void endAdding(int signo) {
@@ -36,7 +40,7 @@ int main(int argc, char ** argv) {
   int n = atoi(argv[1]);
 	printf("Forking\n");
 
-  pid_t child = fork();
+  child = fork();
   if (child == -1) {
     printf("Error while creating child");
     exit(1);
@@ -48,14 +52,18 @@ int main(int argc, char ** argv) {
   } else {
 		while(loop) { pause(); }
 		loop=1;
+    sendingP = 1;
     printf("P: Sending\n");
-    for(int i=0; i<n; i++)
+    for(int i=0; i<n; i++) {
        kill(child, SIGUSR1);
+       while (loop) {pause();}
+       loop = 1;
+     }
 
     printf("P: Last one\n");
+    sendingP = 0;
     kill(child, SIGUSR2);
-		signal(SIGUSR1, addSignals);
-		signal(SIGUSR2, endAdding);
+
 
 		wait(NULL);
 
