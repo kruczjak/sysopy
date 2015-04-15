@@ -29,8 +29,8 @@ int main(int argc, char ** argv) {
 		exit(1);
   }
 
-	signal(SIGUSR1, addSignals);
-	signal(SIGUSR2, endAdding);
+	signal(SIGRTMIN+2, addSignals);
+	signal(SIGRTMIN+1, endAdding);
 
   int n = atoi(argv[1]);
 	printf("Forking\n");
@@ -40,6 +40,7 @@ int main(int argc, char ** argv) {
     printf("Error while creating child");
     exit(1);
   } else if (child == 0) {
+			sleep(1);
       if (execl("child.run", "child.run", NULL) < 0) {
 				printf("Error exec\n");
 				_exit(1);
@@ -49,12 +50,10 @@ int main(int argc, char ** argv) {
 		loop=1;
     printf("P: Sending\n");
     for(int i=0; i<n; i++)
-       kill(child, SIGUSR1);
+       kill(child, SIGRTMIN+2);
 
     printf("P: Last one\n");
-    kill(child, SIGUSR2);
-		signal(SIGUSR1, addSignals);
-		signal(SIGUSR2, endAdding);
+    kill(child, SIGRTMIN+1);
 
 		wait(NULL);
 

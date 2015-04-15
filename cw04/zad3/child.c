@@ -9,28 +9,22 @@
 static int loop;
 static int number;
 
-void addSignals(int signo, siginfo_t * inf, void * ptr) {
-	number++;
-	kill(inf->si_pid, SIGUSR1);
+void addSignals(int signo) {
+  printf("C: Got\n");
+  number++;
 }
 
 void endAdding(int signo) {
-  printf("C: SIGUSR2\n");
+  printf("C: SIGTRMIN+2\n");
   loop =0;
 }
 int main(int argc, char ** argv) {
   number = 0;
   loop = 1;
 
-  struct sigaction action;
-	action.sa_flags = SA_SIGINFO;
-	sigfillset(&action.sa_mask);
-	action.sa_sigaction = addSignals;
-
-
-  if (sigaction(SIGUSR1, &action, NULL))
+  if (signal(SIGRTMIN+2, addSignals)== SIG_ERR)
     exit(1);
-  if (signal(SIGUSR2, endAdding) == SIG_ERR)
+  if (signal(SIGRTMIN+1, endAdding) == SIG_ERR)
     exit(1);
 
   //getting PID of parent
@@ -41,22 +35,18 @@ int main(int argc, char ** argv) {
   }
   pid_t PID;
   fscanf(fp, "%d", &PID);
-  printf("C: PPID %d\n", PID);
+  printf("C: PPID %d", PID);
   //end getting
 
-  kill(PID, SIGUSR2);
+  kill(PID, SIGRTMIN+2);
   while (loop) {
     pause();
   }
 
   for(int i=0; i<number; i++) {
-     kill(PID, SIGUSR1);
-     while(loop) {
-       pause();
-     }
-     loop = 1;
+     kill(PID, SIGRTMIN+2);
   }
-  kill(PID, SIGUSR2);
+  kill(PID, SIGRTMIN+1);
 
   return 0;
 }

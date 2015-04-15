@@ -41,7 +41,6 @@ int main(int argc, char ** argv) {
     printf("Error while creating child");
     exit(1);
   } else if (child == 0) {
-			sleep(1);
       if (execl("child.run", "child.run", NULL) < 0) {
 				printf("Error exec\n");
 				_exit(1);
