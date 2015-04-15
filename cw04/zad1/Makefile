@@ -1,10 +1,13 @@
 CC = gcc
-CFLAGS = -Wall -pedantic -std=c11
+CFLAGS = -Wall -pedantic -std=gnu11
 
-all: main
+all: main child
 
 main:
-	$(CC) $(CFLAGS) main.c -o $@.run
+	$(CC) $(CFLAGS) $@.c -o $@.run
+
+child:
+	$(CC) $(CFLAGS) $@.c -o $@.run
 
 .PHONY: clean
 clean:
