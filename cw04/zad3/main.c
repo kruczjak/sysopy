@@ -7,6 +7,12 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#undef SIGUSR1
+#undef SIGUSR2
+
+#define SIGUSR1 SIGRTMIN+2
+#define SIGUSR2 SIGRTMIN+1
+
 static int loop;
 static int number;
 
@@ -16,7 +22,7 @@ void addSignals(int signo) {
 }
 
 void endAdding(int signo) {
-  printf("P: SIGUSR2\n");
+  printf("P: SIGRTMIN+1\n");
   loop =0;
 }
 
@@ -29,8 +35,8 @@ int main(int argc, char ** argv) {
 		exit(1);
   }
 
-	signal(SIGRTMIN+2, addSignals);
-	signal(SIGRTMIN+1, endAdding);
+	signal(SIGUSR1, addSignals);
+	signal(SIGUSR2, endAdding);
 
   int n = atoi(argv[1]);
 	printf("Forking\n");
@@ -40,7 +46,6 @@ int main(int argc, char ** argv) {
     printf("Error while creating child");
     exit(1);
   } else if (child == 0) {
-			sleep(1);
       if (execl("child.run", "child.run", NULL) < 0) {
 				printf("Error exec\n");
 				_exit(1);
@@ -50,14 +55,14 @@ int main(int argc, char ** argv) {
 		loop=1;
     printf("P: Sending\n");
     for(int i=0; i<n; i++)
-       kill(child, SIGRTMIN+2);
+       kill(child, SIGUSR1);
 
     printf("P: Last one\n");
-    kill(child, SIGRTMIN+1);
+    kill(child, SIGUSR2);
 
 		wait(NULL);
 
-		printf("Got %d SIGUSR1, should be %d", number, n);
+		printf("Got %d SIGRTMIN+2, should be %d", number, n);
 
   }
   return 0;

@@ -9,6 +9,12 @@
 static int loop;
 static int number;
 
+#undef SIGUSR1
+#undef SIGUSR2
+
+#define SIGUSR1 SIGRTMIN+2
+#define SIGUSR2 SIGRTMIN+1
+
 void addSignals(int signo) {
   printf("C: Got\n");
   number++;
@@ -22,9 +28,9 @@ int main(int argc, char ** argv) {
   number = 0;
   loop = 1;
 
-  if (signal(SIGRTMIN+2, addSignals)== SIG_ERR)
+  if (signal(SIGUSR1, addSignals)== SIG_ERR)
     exit(1);
-  if (signal(SIGRTMIN+1, endAdding) == SIG_ERR)
+  if (signal(SIGUSR2, endAdding) == SIG_ERR)
     exit(1);
 
   //getting PID of parent
@@ -38,15 +44,15 @@ int main(int argc, char ** argv) {
   printf("C: PPID %d", PID);
   //end getting
 
-  kill(PID, SIGRTMIN+2);
+  kill(PID, SIGUSR2);
   while (loop) {
     pause();
   }
 
   for(int i=0; i<number; i++) {
-     kill(PID, SIGRTMIN+2);
+     kill(PID, SIGUSR1);
   }
-  kill(PID, SIGRTMIN+1);
+  kill(PID, SIGUSR2);
 
   return 0;
 }

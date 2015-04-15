@@ -53,8 +53,6 @@ int main(int argc, char ** argv) {
 
     printf("P: Last one\n");
     kill(child, SIGUSR2);
-		signal(SIGUSR1, addSignals);
-		signal(SIGUSR2, endAdding);
 
 		wait(NULL);
 
