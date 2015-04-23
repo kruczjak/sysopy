@@ -5,25 +5,34 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <error.h>
+#include <time.h>
+#include <locale.h>
 //server
 
 int main(int argc, char ** argv) {
   char buffer[80];
+  char buff[70];
 
   int fifo = mkfifo(argv[1], 0666);
   if (fifo == -1) perror("Error in mkfifo");
-
-  while(1) { 
+  printf("Godzina odczytu -   PID procesu klienta - godzina zapisu - treść komunikatu.\n");
+  while(1) {
     FILE * fd = fopen(argv[1], "r");
-   // if (fd == -1) perror("Error in open");
-    
+
+
     fgets(buffer, 80,fd);
-    printf("godzina teraz - %s\n", buffer);
+
+    time_t t = time(NULL);
+    struct tm * my_time;
+    my_time = localtime(&t);
+    strftime(buff, sizeof buff, "%T", my_time);
+
+    printf("%s - %s", buff, buffer);
 
     fclose(fd);
   }
 
-  
-  
+
+
   return 0;
 }
