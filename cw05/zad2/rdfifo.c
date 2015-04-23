@@ -12,7 +12,10 @@
 int main(int argc, char ** argv) {
   char buffer[80];
   char buff[70];
-
+  if (argc != 2) {
+    printf("Argument mismatch. Usage: rdinfo <fifo_name>\n");
+    exit(1);
+  }
   int fifo = mkfifo(argv[1], 0666);
   if (fifo == -1) perror("Error in mkfifo");
   printf("Godzina odczytu -   PID procesu klienta - godzina zapisu - treść komunikatu.\n");
