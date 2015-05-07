@@ -95,7 +95,7 @@ int main(int argc, char * argv[])
 	memcpy(c_message.name, name, strlen(name) + 1);
 	c_message.mtype = CLIENT_MSG_TYPE;
 	memcpy(c_message.text, "!<con>", strlen("!<con>") + 1);
-	c_message.time = 222;
+	time(&c_message.time);
 
 	if (msgsnd(server_id, &c_message, sizeof(struct c_msg), 0) < 0)
 		ERROR;
@@ -126,7 +126,7 @@ int main(int argc, char * argv[])
 			if (msgsnd(server_id, &c_message, sizeof(struct c_msg), 0) < 0)
 				ERROR;
 
-			if (strcmp(msg,"exit")==0) exit(0);
+			if (strcmp(msg,"exit\n")==0) exit(0);
 		}
 	}
 

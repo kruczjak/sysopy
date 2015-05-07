@@ -61,6 +61,7 @@ int main(int argc, char** argv)
 	key_t queue_key;		// klucz kolejki
 	struct s_msg s_message;
 	struct c_msg c_message;
+	struct msqid_ds data;
 
 	printf("\nSERVER: generating fifo file");
 	if (close(open(SERVER_KEY_FILE, O_WRONLY | O_CREAT, FILE_PERM)) < 0)
@@ -97,20 +98,20 @@ int main(int argc, char** argv)
 
 		if (strcmp(c_message.text,"!<con>")==0) {
 			create = 1;
-			sprintf(c_message.text, "connected");
+			sprintf(c_message.text, "connected\n");
 			for (int i=0; i<MAX_CLIENTS; i++) {
 				if (clients[i] == c_message.queue_id) {
 					create = 0;
 					break;
 				}
 			}
-		} else if (strcmp(c_message.text,"exit")==0) {
+		} else if (strcmp(c_message.text,"exit\n")==0) {
 			for (int i=0; i<MAX_CLIENTS; i++)
 				if (clients[i] == c_message.queue_id) {
 					clients[i] = -1;
 					break;
 				}
-				sprintf(c_message.text, "exiting");
+				sprintf(c_message.text, "exiting\n");
 		}
 		printf("SERVER: sending . . .\n");
 
@@ -122,7 +123,7 @@ int main(int argc, char** argv)
 		char buffer [26];
 		struct tm * timeinfo;
 		timeinfo = localtime (&c_message.time);
-		strftime(buffer, 26, "%H:%M:%S", tm_info);
+		strftime(buffer, 26, "%H:%M:%S", timeinfo);
 		strcpy(s_message.name, argv[0]);
 		sprintf(s_message.text,"[%s] %s: %s", buffer, c_message.name, c_message.text);
 
