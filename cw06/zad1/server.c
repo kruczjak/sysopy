@@ -16,10 +16,10 @@
 #define FILE_PERM S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP
 #define QUEUE_PERM S_IRUSR | S_IWUSR | S_IWGRP
 #define SERVER_KEY_FILE "/tmp/server.key"
-#define CLIENT_QUEUE_KEY 'c'
 #define CLIENT_MSG_TYPE 1
 #define SERVER_MSG_TYPE 2
-#define MSG_LENGTH 25
+#define MAX_CLIENTS 100
+#define MSG_LENGTH 50
 #define NAME_LENGTH 50
 #define ERROR { int error_code = errno; \
 				fprintf(stderr, "blad: %s\n", strerror(error_code)); \
@@ -31,6 +31,7 @@ struct c_msg
 	char name[NAME_LENGTH];
 	char text[MSG_LENGTH];
 	int queue_id;
+	time_t time;
 };
 
 struct s_msg
@@ -38,7 +39,6 @@ struct s_msg
 	long mtype;
 	char name[NAME_LENGTH];
 	char text[MSG_LENGTH];
-	struct msqid_ds msqid;
 };
 ////////////
 volatile int queue_id;
@@ -55,25 +55,12 @@ void clean()
 int main(int argc, char** argv)
 {
 
-	// int sleep_time;
+	int clients [MAX_CLIENTS];
+	for (int i = 0; i<MAX_CLIENTS; i++) clients[i] = -1;
+	int clients_pointer=0;
 	key_t queue_key;		// klucz kolejki
 	struct s_msg s_message;
 	struct c_msg c_message;
-	struct msqid_ds data;
-
-	if (argc < 2)
-	{
-		fprintf(stderr, "usage: %s [sleep_time]\n", argv[0]);
-		exit(1);
-	}
-
-	// moze lepiej strtol ?
-	// sleep_time = atoi(argv[1]);
-	// if(sleep_time < 0)
-	// {
-	// 	fprintf(stderr, "error: sleep_time < 0\n");
-	// 	exit(1);
-	// }
 
 	printf("\nSERVER: generating fifo file");
 	if (close(open(SERVER_KEY_FILE, O_WRONLY | O_CREAT, FILE_PERM)) < 0)
@@ -89,10 +76,10 @@ int main(int argc, char** argv)
 	if ((queue_id = msgget(queue_key, IPC_CREAT | QUEUE_PERM)) < 0)
 		ERROR;
 	printf("\t\t[ OK ]\n");
-
 	atexit(clean);
 
 	srand(time(NULL));
+	int create = 0;
 
 	while (1)
 	{
@@ -106,29 +93,51 @@ int main(int argc, char** argv)
 		printf("name    : %s\n", c_message.name);
 		printf("mesasge : %s\n", c_message.text);
 		printf("queue id: %d\n", c_message.queue_id);
+		printf("time: %d\n", (int)c_message.time);
 
-		// sleep(rand() % sleep_time);
-
-		printf("SERVER: sending . . .");
+		if (strcmp(c_message.text,"!<con>")==0) {
+			create = 1;
+			sprintf(c_message.text, "connected");
+			for (int i=0; i<MAX_CLIENTS; i++) {
+				if (clients[i] == c_message.queue_id) {
+					create = 0;
+					break;
+				}
+			}
+		} else if (strcmp(c_message.text,"exit")==0) {
+			for (int i=0; i<MAX_CLIENTS; i++)
+				if (clients[i] == c_message.queue_id) {
+					clients[i] = -1;
+					break;
+				}
+				sprintf(c_message.text, "exiting");
+		}
+		printf("SERVER: sending . . .\n");
 
 		if (msgctl(queue_id, IPC_STAT, &data) < 0)
 			ERROR;
 
 		s_message.mtype = SERVER_MSG_TYPE;
 
-		s_message.msqid.msg_qnum = data.msg_qnum;
-		s_message.msqid.msg_cbytes = data.msg_cbytes;
-		s_message.msqid.msg_qbytes = data.msg_qbytes;
-		s_message.msqid.msg_lspid = data.msg_lspid;
-		s_message.msqid.msg_lrpid = data.msg_lrpid;
-		s_message.msqid.msg_stime = data.msg_stime;
-		s_message.msqid.msg_rtime = data.msg_rtime;
-
+		char buffer [26];
+		struct tm * timeinfo;
+		timeinfo = localtime (&c_message.time);
+		strftime(buffer, 26, "%H:%M:%S", tm_info);
 		strcpy(s_message.name, argv[0]);
-		memcpy(s_message.text, c_message.text, MSG_LENGTH+1);
+		sprintf(s_message.text,"[%s] %s: %s", buffer, c_message.name, c_message.text);
 
-		if(msgsnd(c_message.queue_id, &s_message, sizeof(struct s_msg), 0) < 0)
-			ERROR;
+		for (int i=0;i<MAX_CLIENTS;i++)
+			if (clients[i]!=-1) {
+				printf("Sending to %d\n", clients[i]);
+				if(msgsnd(clients[i], &s_message, sizeof(struct s_msg), 0) < 0)
+					ERROR;
+				}
+
+		if (create == 1) {
+			create = 0;
+			clients[clients_pointer] = c_message.queue_id;
+			clients_pointer++;
+		}
 
 		printf("\t\t\t[ OK ]\n");
 	}

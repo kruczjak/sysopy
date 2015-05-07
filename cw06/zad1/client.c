@@ -19,7 +19,7 @@
 #define CLIENT_QUEUE_KEY 'c'
 #define CLIENT_MSG_TYPE 1
 #define SERVER_MSG_TYPE 2
-#define MSG_LENGTH 25
+#define MAX_MSG_LENGTH 50
 #define NAME_LENGTH 50
 #define ERROR { int error_code = errno; \
 				fprintf(stderr, "blad: %s\n", strerror(error_code)); \
@@ -29,16 +29,16 @@ struct c_msg
 {
 	long mtype;
 	char name[NAME_LENGTH];
-	char text[MSG_LENGTH];
+	char text[MAX_MSG_LENGTH];
 	int queue_id;
+	time_t time;
 };
 
 struct s_msg
 {
 	long mtype;
 	char name[NAME_LENGTH];
-	char text[MSG_LENGTH];
-	struct msqid_ds msqid;
+	char text[MAX_MSG_LENGTH];
 };
 /////////////////
 
@@ -48,7 +48,6 @@ int main(int argc, char * argv[])
 	key_t queue_key;
 	int server_id;
 	int queue_id;
-	int nr;
 
 	struct s_msg s_message;
 	struct c_msg c_message;
@@ -60,6 +59,8 @@ int main(int argc, char * argv[])
 	}
 
 	char * name = argv[1];
+	char CLIENT_KEY_FILE [NAME_LENGTH];
+	sprintf(CLIENT_KEY_FILE, "/tmp/%s.key", name);
 
 	printf("CLIENT: obtaining server fifo key");
     if ((server_key = ftok(SERVER_KEY_FILE, 's')) < 0)
@@ -73,12 +74,12 @@ int main(int argc, char * argv[])
 
 
 	printf("CLIENT: generating own fifo file");
-	if (close(open("c", O_WRONLY | O_CREAT, FILE_PERM)) < 0)
+	if (close(open(CLIENT_KEY_FILE, O_WRONLY | O_CREAT, FILE_PERM)) < 0)
 		ERROR;
 	printf("\t[ OK ]\n");
 
 	printf("CLIENT: generating own fifo key");
-	if ((queue_key = ftok("c", CLIENT_QUEUE_KEY)) < 0)
+	if ((queue_key = ftok(CLIENT_KEY_FILE, CLIENT_QUEUE_KEY)) < 0)
 		ERROR;
 	printf("\t\t[ OK ]\n");
 
@@ -89,50 +90,43 @@ int main(int argc, char * argv[])
 
 	srand(time(NULL));
 
-	while(1)
-	{
-		printf(">> ");
-		if (scanf("%d", &nr) < 0)
-		{
-			fprintf(stderr, "Integer expected\n");
-			exit(1);
-		}
+//sending first message
+	c_message.queue_id = queue_id;
+	memcpy(c_message.name, name, strlen(name) + 1);
+	c_message.mtype = CLIENT_MSG_TYPE;
+	memcpy(c_message.text, "!<con>", strlen("!<con>") + 1);
+	c_message.time = 222;
 
-		int i;
-		for(i = 0; i < nr; i++)
-		{
-			printf("CLIENT: generating message");
-			c_message.queue_id = queue_id;
-			memcpy(c_message.name, name, strlen(name) + 1);
+	if (msgsnd(server_id, &c_message, sizeof(struct c_msg), 0) < 0)
+		ERROR;
+//end
 
-			c_message.mtype = CLIENT_MSG_TYPE;
-
-			int j;
-			for(j = 0 ; j < MSG_LENGTH ; j++)
-				c_message.text[j] = rand() % 26 + 'a';
-			printf("\t\t[ OK ]\n");
-
-			printf("CLIENT: sending to server");
-			if (msgsnd(server_id, &c_message, sizeof(struct c_msg), 0) < 0)
-				ERROR;
-			printf("\t\t[ OK ]\n");
-
-			printf("CLIENT: waiting for response");
+	pid_t writer = fork();
+	if (writer < 0 ) {
+	  ERROR;
+	} else if (writer == 0) {
+		//fork
+		while(1) {
 			if (msgrcv(queue_id, &s_message, sizeof(struct s_msg), SERVER_MSG_TYPE, 0) < 0)
 				ERROR;
-			printf("\t\t[ OK ]\n");
+			printf("%s", s_message.text);
+		}
+	} else {
+		char msg [MAX_MSG_LENGTH];
+		while(1) {
 
-			printf("CLIENT: got server response:\n");
-			printf("============================\n");
-			printf("name   : %s\n", s_message.name);
-			printf("text   : %s\n", s_message.text);
-			printf("qnum   : %ld\n", s_message.msqid.msg_qnum);
-			printf("cbytes : %ld\n", s_message.msqid.msg_cbytes);
-			printf("qbytes : %ld\n", s_message.msqid.msg_qbytes);
-			printf("lspid  : %d\n", s_message.msqid.msg_lspid);
-			printf("lrpid  : %d\n", s_message.msqid.msg_lrpid);
-			printf("stime  : %ld\n", s_message.msqid.msg_stime);
-			printf("rtime  : %ld\n", s_message.msqid.msg_rtime);
+			fgets (msg, MAX_MSG_LENGTH, stdin);
+
+			c_message.queue_id = queue_id;
+			memcpy(c_message.name, name, strlen(name) + 1);
+			c_message.mtype = CLIENT_MSG_TYPE;
+			memcpy(c_message.text, msg, strlen(msg) + 1);
+			time(&c_message.time);
+
+			if (msgsnd(server_id, &c_message, sizeof(struct c_msg), 0) < 0)
+				ERROR;
+
+			if (strcmp(msg,"exit")==0) exit(0);
 		}
 	}
 
