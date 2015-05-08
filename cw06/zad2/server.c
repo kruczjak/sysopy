@@ -69,7 +69,7 @@ int main(int argc, char** argv)
 	struct s_msg s_message;
 	struct c_msg c_message;
 
-	printf("\nSERVER: generating fifo file");
+	printf("\nSERVER: mq_open");
 	struct mq_attr ma;
 	ma.mq_flags = 0;                // blocking read/write
   ma.mq_maxmsg = 16;              // maximum number of messages allowed in queue
@@ -100,7 +100,7 @@ int main(int argc, char** argv)
 		printf("queue id: %d\n", c_message.queue_id);
 		printf("time: %d\n", (int)c_message.time);
 
-		if (strcmp(c_message.text,"!<con>")==0) {
+		if (strcmp(c_message.text,"!<con>")==0) { //when first connected
 			create = 1;
 			sprintf(c_message.text, "connected\n");
 			for (int i=0; i<MAX_CLIENTS; i++) {
@@ -109,7 +109,7 @@ int main(int argc, char** argv)
 					break;
 				}
 			}
-		} else if (strcmp(c_message.text,"exit\n")==0) {
+		} else if (strcmp(c_message.text,"exit\n")==0) {//wjem disconnecting
 			for (int i=0; i<MAX_CLIENTS; i++)
 				if (strcmp(clients[i], c_message.name)==0) {
 					clients[i][0] = '\0';
@@ -128,7 +128,7 @@ int main(int argc, char** argv)
 		strcpy(s_message.name, argv[0]);
 		sprintf(s_message.text,"[%s] %s: %s", buffer, c_message.name, c_message.text);
 
-		for (int i=0;i<MAX_CLIENTS;i++)
+		for (int i=0;i<MAX_CLIENTS;i++) //sending to all
 			if (clients[i][0]!='\0') {
 				printf("Sending to %s\n", clients[i]);
 
