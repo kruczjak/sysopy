@@ -74,8 +74,7 @@ int main(int argc, char * argv[])
 	strcpy(new_name, name);
 	prepend(new_name, "/");
 
-
-	printf("CLIENT: obtaining server fifo id");
+	printf("CLIENT: obtaining server id");
 	struct mq_attr ma;
 	ma.mq_flags = 0;                // blocking read/write
 	ma.mq_maxmsg = 16;              // maximum number of messages allowed in queue
