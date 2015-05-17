@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
@@ -13,9 +14,13 @@
 #include <sys/time.h>
 #include <signal.h>
 
+#define KNRM  "\x1B[0m"
+#define KRED  "\x1B[31m"
+#define KGRN  "\x1B[32m"
+#define KYEL  "\x1B[33m"
 #define N 100
 #define ERROR { int error_code = errno; \
-				printf("FATAL (line %d): %s\n", __LINE__, strerror(error_code)); \
+				printf(KRED"FATAL (line %d): %s\n", __LINE__, strerror(error_code)); \
 				exit(error_code);}
 
 int seg_id;
@@ -30,7 +35,7 @@ union semun {
   int val;
   struct semid_ds * buf;
   unsigned short int * array;
-  struct seminfo * __buf;
+  // struct seminfo * __buf;
 };
 
 void * segment;
@@ -84,20 +89,20 @@ void handler() {
 void producent() {
 	struct Segment * curr = (struct Segment *) segment;
   while(1) {
-    int number = rand();
+    int number = rand() + 1;
 		down(0);
     down(2);
 
-		while (curr->TAB[curr->tab_ptr] != -1) {
+		while (curr->TAB[curr->tab_ptr] != 0) {
       curr->tab_ptr += 1;
       if (curr->tab_ptr == N) {
         curr->tab_ptr = 0;
       }
     }
-
+		curr->TAB[curr->tab_ptr] = number;
     int counter = 0;
     for (int i = 0; i < N; ++i) {
-      if (curr->TAB[i] != -1) {
+      if (curr->TAB[i] != 0) {
         counter += 1;
       }
     }
@@ -120,7 +125,7 @@ void customer() {
   while(1) {
 		down(1);
     down(2);
-    while (curr->TAB[curr->tab_ptr] == -1) {
+    while (curr->TAB[curr->tab_ptr] == 0) {
       curr->tab_ptr += 1;
       if (curr->tab_ptr == N) {
         curr->tab_ptr = 0;
@@ -128,10 +133,10 @@ void customer() {
     }
 
     int number = curr-> TAB[curr->tab_ptr];
-    curr-> TAB[curr->tab_ptr] = -1;
+    curr-> TAB[curr->tab_ptr] = 0;
 		int counter = 0;
 		for (int i = 0; i < N; ++i) {
-			if (curr->TAB[i] != -1) {
+			if (curr->TAB[i] != 0) {
 				counter += 1;
 			}
 		}
@@ -153,9 +158,9 @@ void customer() {
 
 
 int main(int argc, char ** argv) {
-
+	printf(KGRN);
   if (argc != 2) {
-    printf("Argument mismatch!: main.run <c|p>\n");
+    printf(KRED"Argument mismatch!: main.run <c|p>\n");
     exit(1);
   }
 
@@ -163,15 +168,18 @@ int main(int argc, char ** argv) {
 			ERROR;
 	}
   srand(time(NULL));
+	atexit(clean);
 
+	//SEMAPHORES
 	key_t key;
-  if ( (key = ftok(argv[0], 's')) < 0 ) {
+  if ( (key = ftok(".", 's')) < 0 ) {
     ERROR;
   }
   // sem 0: prod == emptyCount = MAX
 	// sem 1: cons == fillCount = 0
 	// sem 2: tab == mutex = 1
-  if ((semid = semget(key, 3, IPC_CREAT | IPC_EXCL | 0666)) >= 0) {
+  if ((semid = semget(key, 3, 0666 | IPC_CREAT | IPC_EXCL)) >= 0) {
+		printf("Created new semaphores\n");
 		union semun arg_empty;
 		union semun arg_full;
 		union semun arg_critic;
@@ -187,35 +195,36 @@ int main(int argc, char ** argv) {
 		if (semctl(semid, 2, SETVAL, arg_critic) < 0) {
 				ERROR;
 		}
+		printf("Setting new semaphores\n");
 	} else if ((semid = semget(key, 3, 0)) < 0) {
 		ERROR;
 	}
+	printf("Semaphores success\n");
 
-
+	//SHARED MEMORY
   int seg_size = sizeof(struct Segment);
-  atexit(clean);
-
   //allocate shared mem seg,
-	if ( (key = ftok(argv[0], 'm')) < 0 ) {
+	if ( (key = ftok(".", 1)) < 0 ) {
     ERROR;
   }
   if ((seg_id = shmget(key, seg_size, IPC_CREAT | IPC_EXCL | 0666)) >= 0) {
     //success
-		if (*((int *)(segment = shmat(seg_id, NULL, 0))) < 0) {
+		printf("Created new shared memory\n");
+		if (*((int *)(segment = shmat(seg_id, 0, 0))) < 0) {
       ERROR;
     }
+		printf("Allocated new shared memory\n");
     ((struct Segment * ) segment)->tab_ptr = 0;
-    for (int i = 0; i < N; i += 1) {
-      ((struct Segment * ) segment)->TAB[i] = -1;
-    }
   }
-  else if ((seg_id = shmget(key, seg_size, 0)) < 0) {
+  else if ((seg_id = shmget(key, seg_size, IPC_CREAT | 0666)) < 0) {
     ERROR;
   }
-  else if (*((int *)(segment = shmat(seg_id, NULL, 0))) < 0) {
+  else if (*((int *)(segment = shmat(seg_id, 0, 0))) < 0) {
     ERROR;
   }
+	printf("Allocated shared memory success\n"KNRM);
 
+	//RUN
   if (strcmp(argv[1], "p") == 0) {
     producent();
   }
@@ -223,7 +232,7 @@ int main(int argc, char ** argv) {
     customer();
   }
   else {
-    printf("Argument mismatch!: main.run <c|p>\n");
+    printf(KRED"Argument mismatch!: main.run <c|p>\n");
     exit(1);
   }
 
