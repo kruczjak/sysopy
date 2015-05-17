@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -pedantic -std=c11
+CFLAGS = -Wall -pedantic -std=gnu11 -lrt -lpthread -D_POSIX_C_SOURCE=200809L
 
 all: main
 

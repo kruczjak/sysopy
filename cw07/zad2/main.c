@@ -1,4 +1,5 @@
 #define _XOPEN_SOURCE
+#define _POSIX_SOURCE 2
 #include <sys/mman.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,7 +14,13 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
+#define EMPTYCOUNT "/podobne1"
+#define FILLCOUNT "/podobne2"
+#define MUTEX "/podobne3"
+#define SHM_PATH "/nibysciezka"
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
 #define KGRN  "\x1B[32m"
@@ -23,8 +30,10 @@
 				printf(KRED"FATAL (line %d): %s\n", __LINE__, strerror(error_code)); \
 				exit(error_code);}
 
+
 int seg_id;
-int semid;
+sem_t * emptyCount, * fillCount, * mutex;
+
 
 struct Segment {
   int TAB[N];
@@ -55,31 +64,27 @@ bool checkPrime(int x) {
   return true;
 }
 
-void up(int n) {
-  struct sembuf semOp;
-  semOp.sem_num = n;
-  semOp.sem_op = 1;
-  semOp.sem_flg = 0;
-  if (semop(semid, &semOp, 1) < 0) {
+void up(sem_t * s) {
+  if (sem_post(s) < 0) {
 		ERROR;
 	}
 }
 
-void down(int n) {
-  struct sembuf semOp;
-  semOp.sem_num = n;
-  semOp.sem_op = -1;
-  semOp.sem_flg = 0;
-  if (semop(semid, &semOp, 1) < 0) {
+void down(sem_t * s) {
+  if (sem_wait(s) < 0) {
 		ERROR;
 	}
 }
 
 void clean() {
-  shmdt(segment);
-  shmctl(seg_id, IPC_RMID, 0);
-  union semun ignored_argument;
-  semctl(semid, 1, IPC_RMID, ignored_argument);
+  munmap(segment, sizeof(struct Segment));
+  shm_unlink(SHM_PATH);
+  sem_close(emptyCount);
+	sem_unlink(EMPTYCOUNT);
+	sem_close(fillCount);
+	sem_unlink(FILLCOUNT);
+	sem_close(mutex);
+	sem_unlink(MUTEX);
 }
 
 void handler() {
@@ -90,8 +95,8 @@ void producent() {
 	struct Segment * curr = (struct Segment *) segment;
   while(1) {
     int number = rand() + 1;
-		down(0);
-    down(2);
+		down(emptyCount);
+    down(mutex);
 
 		while (curr->TAB[curr->tab_ptr] != 0) {
       curr->tab_ptr += 1;
@@ -112,8 +117,8 @@ void producent() {
        (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ; // convert tv_sec & tv_usec to millisecond
     printf("(%d %.0lf)   Dodalem liczbe: %d. Liczba zadan oczekujacych: %d. \n", getpid(), time_in_mill, number, counter);
 
-		up(2);
-		up(1);
+		up(mutex);
+		up(fillCount);
   }
 
 }
@@ -123,8 +128,8 @@ void customer() {
   struct Segment * curr = (struct Segment *) segment;
 
   while(1) {
-		down(1);
-    down(2);
+		down(fillCount);
+    down(mutex);
     while (curr->TAB[curr->tab_ptr] == 0) {
       curr->tab_ptr += 1;
       if (curr->tab_ptr == N) {
@@ -140,8 +145,8 @@ void customer() {
 				counter += 1;
 			}
 		}
-    up(2);
-		up(0);
+    up(mutex);
+		up(emptyCount);
 
     char * isFirst = "pierwsza";
     if (!checkPrime(number)) {
@@ -158,6 +163,7 @@ void customer() {
 
 
 int main(int argc, char ** argv) {
+
 	printf(KGRN);
   if (argc != 2) {
     printf(KRED"Argument mismatch!: main.run <c|p>\n");
@@ -171,55 +177,45 @@ int main(int argc, char ** argv) {
 	atexit(clean);
 
 	//SEMAPHORES
-	key_t key;
-  if ( (key = ftok(".", 's')) < 0 ) {
-    ERROR;
-  }
+
   // sem 0: prod == emptyCount = MAX
 	// sem 1: cons == fillCount = 0
 	// sem 2: tab == mutex = 1
-  if ((semid = semget(key, 3, 0666 | IPC_CREAT | IPC_EXCL)) >= 0) {
-		printf("Created new semaphores\n");
-		union semun arg_empty;
-		union semun arg_full;
-		union semun arg_critic;
-		arg_empty.val = N;
-		arg_full.val = 0;
-		arg_critic.val = 1;
-		if (semctl(semid, 0, SETVAL, arg_empty) < 0) {
-				ERROR;
-		}
-		if (semctl(semid, 1, SETVAL, arg_full) < 0) {
-				ERROR;
-		}
-		if (semctl(semid, 2, SETVAL, arg_critic) < 0) {
-				ERROR;
-		}
-		printf("Setting new semaphores\n");
-	} else if ((semid = semget(key, 3, 0)) < 0) {
+  if ((emptyCount = sem_open(EMPTYCOUNT, O_CREAT, S_IRUSR | S_IWUSR, N)) == SEM_FAILED) {
 		ERROR;
 	}
+
+	if ((fillCount = sem_open(FILLCOUNT, O_CREAT, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
+		ERROR;
+	}
+
+	if ((mutex = sem_open(MUTEX, O_CREAT, S_IRUSR | S_IWUSR, 1)) == SEM_FAILED) {
+		ERROR;
+	}
+
 	printf("Semaphores success\n");
 
 	//SHARED MEMORY
   int seg_size = sizeof(struct Segment);
   //allocate shared mem seg,
-	if ( (key = ftok(".", 1)) < 0 ) {
-    ERROR;
-  }
-  if ((seg_id = shmget(key, seg_size, IPC_CREAT | IPC_EXCL | 0666)) >= 0) {
+
+  if ((seg_id = shm_open(SHM_PATH, O_CREAT | O_EXCL | O_RDWR, S_IRWXU | S_IRWXG)) >= 0) {
     //success
 		printf("Created new shared memory\n");
-		if (*((int *)(segment = shmat(seg_id, 0, 0))) < 0) {
+		ftruncate(seg_id, seg_size);
+		if ((segment = mmap(NULL, seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, seg_id, 0)) == NULL) {
       ERROR;
     }
 		printf("Allocated new shared memory\n");
     ((struct Segment * ) segment)->tab_ptr = 0;
   }
-  else if ((seg_id = shmget(key, seg_size, IPC_CREAT | 0666)) < 0) {
-    ERROR;
+  else if ((seg_id = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG)) >= 0) {
+    ftruncate(seg_id, seg_size);
+		if ((segment = mmap(NULL, seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, seg_id, 0)) == NULL) {
+      ERROR;
+    }
   }
-  else if (*((int *)(segment = shmat(seg_id, 0, 0))) < 0) {
+  else {
     ERROR;
   }
 	printf("Allocated shared memory success\n"KNRM);
