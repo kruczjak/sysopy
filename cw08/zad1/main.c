@@ -7,18 +7,32 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 
 #define RECORD_SIZE 1024
 #define ERROR { int error_code = errno; \
 				printf("FATAL (line %d): %s\n", __LINE__, strerror(error_code)); \
 				exit(error_code);}
 
-struct thread_arg {
-  int fd;
-  pthread_t * threads;
-} data;
+pthread_t * threads;
+
+int fd;
+int number;
+int read_once;
+char * search;
 
 void * readLine(void * arg) {
+
+  char buff[RECORD_SIZE * read_once];
+  if (read(fd, buff, RECORD_SIZE * read_once) != RECORD_SIZE * read_once) ERROR;
+
+  if (strstr(buff, search) != NULL) {
+    printf("%d %d", (int) pthread_self(), 20); //TODO
+    for(int i = 0; i < number; i++)
+      if(threads[i] != (int) pthread_self())
+        pthread_cancel(threads[i]);
+  }
+
   return NULL;
 }
 
@@ -38,13 +52,10 @@ int main(int argc, char ** argv) {
     number += (argv[1][i] - '0') * multiplicate;
   }
 
-  pthread_t * threads;
   if ((threads = malloc(number * sizeof(pthread_t))) == NULL) ERROR;
 
-  data.threads = threads;
-
   for(int i = 0; i < number; i++) {
-    if (pthread_create(&(threads[i]), NULL, &readLine, (void *) &data) != 0) ERROR;
+    if (pthread_create(&(threads[i]), NULL, &readLine, NULL) != 0) ERROR;
   }
 
 
