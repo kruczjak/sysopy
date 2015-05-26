@@ -10,36 +10,67 @@
 #include <string.h>
 
 #define RECORD_SIZE 1024
-#define ERROR { int error_code = errno; \
-				printf("FATAL (line %d): %s\n", __LINE__, strerror(error_code)); \
-				exit(error_code);}
+#define ERROR {printf("FATAL (line %d): %s\n", __LINE__, strerror(errno)); \
+				exit(errno);}
 
 pthread_t * threads;
+pthread_mutex_t mutex;
 
 int fd;
-int number;
-int read_once;
+int number = 0;
+int read_once = 0;
 char * search;
+int size;
+int row = 0;
 
 void * readLine(void * arg) {
+	char * buff = (char *) malloc(read_once * RECORD_SIZE);
 
-  char buff[RECORD_SIZE * read_once];
-  if (read(fd, buff, RECORD_SIZE * read_once) != RECORD_SIZE * read_once) ERROR;
+	#ifdef V1
+	if(pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL) < 0) ERROR;
+	#elif V2
+	if(pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL) < 0) ERROR;
+	#endif
 
-  if (strstr(buff, search) != NULL) {
-    printf("%d %d", (int) pthread_self(), 20); //TODO
+	#ifdef V3
+	if(pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL) < 0) ERROR;
+	#else
+	if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) < 0) ERROR;
+	#endif
+
+	pthread_mutex_lock(&mutex);
+
+
+  if (read(fd, buff, read_once * RECORD_SIZE) != read_once*RECORD_SIZE) ERROR;
+
+	char * sub;
+  if ((sub = strstr(buff, search)) != NULL) {
+		int position = buff - sub;
+		row += position/RECORD_SIZE;
+		int right = position % RECORD_SIZE;
+		char * rowStart = sub - right;
+		int rowID = 0;
+		int multiplicate = 1;
+		while (rowStart!=' ') {
+
+		}
+    printf("%d %d", (int) pthread_self(), rowID);
     for(int i = 0; i < number; i++)
-      if(threads[i] != (int) pthread_self())
-        pthread_cancel(threads[i]);
+      if(threads[i] != (int) pthread_self()) pthread_cancel(threads[i]);
   }
+	row +=2;
+	#ifdef V2
+	pthread_testcancel();
+	#endif
+
+	pthread_mutex_unlock(&mutex);
 
   return NULL;
 }
 
 //record: id text
 int main(int argc, char ** argv) {
-  int number = 0;
-  int fd;
+
   if (argc!=5) {
     printf("Arguments mismatch!: main.run <#threads> <file_name> <records> <word_to_find>\n");
     exit(1);
@@ -48,21 +79,31 @@ int main(int argc, char ** argv) {
 
   int multiplicate = 1;
   for(int i = strlen(argv[1]) - 1; i >= 0;i++) {
-    multiplicate *= 10;
     number += (argv[1][i] - '0') * multiplicate;
+    multiplicate *= 10;
   }
 
-  if ((threads = malloc(number * sizeof(pthread_t))) == NULL) ERROR;
+	multiplicate = 1;
+  for(int i = strlen(argv[1]) - 1; i >= 0;i++) {
+    read_once += (argv[3][i] - '0') * multiplicate;
+    multiplicate *= 10;
+  }
 
+	printf("%d %d\n", number, read_once);
+
+  if ((threads = malloc(number * sizeof(pthread_t))) == NULL) ERROR;
+	if(pthread_mutex_init(&mutex, NULL) < 0) ERROR;
   for(int i = 0; i < number; i++) {
     if (pthread_create(&(threads[i]), NULL, &readLine, NULL) != 0) ERROR;
   }
 
-
-
   for(int i = 0; i < number; i++) {
     if (pthread_join(threads[i], NULL) != 0) ERROR;
   }
+
+	if (close(fd) < 0) ERROR;
+	if(pthread_mutex_destroy(&mutex) < 0) ERROR;
+
 
   return 0;
 }
