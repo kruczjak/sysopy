@@ -51,8 +51,10 @@ void * readLine(void * arg) {
 		char * rowStart = sub - right;
 		int rowID = 0;
 		int multiplicate = 1;
-		while (rowStart!=' ') {
-
+		while (rowStart!=' ' || rowStart!='\0') {
+			number += (*rowStart - '0') * multiplicate;
+			multiplicate *= 10;
+			rowStart++;
 		}
     printf("%d %d", (int) pthread_self(), rowID);
     for(int i = 0; i < number; i++)
