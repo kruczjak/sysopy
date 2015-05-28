@@ -1,0 +1,24 @@
+a)
+1. Wysłanie sygnału do procesu, gdy żaden wątek nie ma zamaskowanego tego sygnału
+Zachowanie, jakby program nie miał wątków
+
+2. Wysłanie sygnału do procesu, gdy główny wątek programu ma zamaskowany ten sygnał, a wszystkie pozostałe wątki nie
+SIGUSR1 i SIGTERM nie daje żadnego rezultatu.
+
+3. Wysłanie sygnału do procesu, gdy wszystkie wątki mają zainstalowaną niestandardową procedurę obsługi przerwania, która wypisuje informację o nadejściu tego sygnału oraz PID i TID danego wątku
+SIGUSR1 i SIGTERM skutkują wypisaniem komunikatu zawierającego PID, który jest taki sam jak TID.
+
+4. Wysłanie sygnału do wątku z zamaskowanym tym sygnałem
+SIGUSR1 i SIGTERM zakańcza cały proces.
+
+5. Wysłanie sygnału do wątku, w którym zmieniona jest procedura obsługi sygnału, jak przedstawiono w punkcie 3
+SIGUSR1 i SIGTERM skutkuje wypisaniem komunikatu zawierającego PID, który jest PIDem głównego procesu oraz TID.
+
+b) Dzielenie przez zero
+Wszystkie wątki zostają zabite. W komunikacie podany tylko PID procesu.
+
+----------------------------------------------------
+Arch Linux, release: rolling
+Linux KRUCZJAK 4.0.4-2-ARCH #1 SMP PREEMPT Fri May 22 03:05:23 UTC 2015 x86_64 GNU/Linux
+Intel i7-3610QM (8 wątków)
+gcc version 5.1.0 (GCC)
