@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
@@ -8,6 +9,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/syscall.h>
 
 #define RECORD_SIZE 1024
 #define ERROR {printf("FATAL (line %d): %s\n", __LINE__, strerror(errno)); \
@@ -24,7 +26,8 @@ int size;
 int row = 0;
 
 void * readLine(void * arg) {
-	char * buff = (char *) malloc(read_once * RECORD_SIZE);
+	char record[RECORD_SIZE + 1];
+	char * buff = (char *) malloc(read_once * RECORD_SIZE * sizeof(char) + sizeof(char));
 
 	#ifdef V1
 	if(pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL) < 0) ERROR;
@@ -38,34 +41,42 @@ void * readLine(void * arg) {
 	if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) < 0) ERROR;
 	#endif
 
-	pthread_mutex_lock(&mutex);
-
-
-  if (read(fd, buff, read_once * RECORD_SIZE) != read_once*RECORD_SIZE) ERROR;
-
-	char * sub;
-  if ((sub = strstr(buff, search)) != NULL) {
-		int position = buff - sub;
-		row += position/RECORD_SIZE;
-		int right = position % RECORD_SIZE;
-		char * rowStart = sub - right;
-		int rowID = 0;
-		int multiplicate = 1;
-		while (rowStart!=' ' || rowStart!='\0') {
-			number += (*rowStart - '0') * multiplicate;
-			multiplicate *= 10;
-			rowStart++;
+	int loop = 1;
+	while (loop) {
+		pthread_mutex_lock(&mutex);
+		int readed = 0;
+	  if ((readed = read(fd, buff, read_once * RECORD_SIZE)) == 0) {
+			//end of records
+			loop = 0;
+			pthread_mutex_unlock(&mutex);
+			break;
 		}
-    printf("%d %d", (int) pthread_self(), rowID);
-    for(int i = 0; i < number; i++)
-      if(threads[i] != (int) pthread_self()) pthread_cancel(threads[i]);
-  }
-	row +=2;
-	#ifdef V2
-	pthread_testcancel();
-	#endif
+		pthread_mutex_unlock(&mutex);
+		int readed_lines = readed / RECORD_SIZE;
+		for (size_t i = 0; i < readed_lines; i++) {
+			strncpy(record, buff, RECORD_SIZE);
+			memmove(buff, buff + RECORD_SIZE, RECORD_SIZE * readed_lines);
+			record[RECORD_SIZE] = '\0';
+			char * text;
+			int id = strtol(record, &text, 10);
 
-	pthread_mutex_unlock(&mutex);
+
+		  if (strstr(text, search) != NULL) {
+		    printf("%ld %d", syscall(SYS_gettid), id);
+				#ifndef V3
+			    for(int i = 0; i < number; i++)
+			      if(pthread_equal(threads[i], pthread_self()))
+							pthread_cancel(threads[i]);
+					loop = 0;
+				#endif
+		  }
+		}
+
+		#ifdef V2
+			pthread_testcancel();
+		#endif
+	}
+
 
   return NULL;
 }
@@ -79,29 +90,24 @@ int main(int argc, char ** argv) {
   }
   if ((fd = open(argv[2], O_RDONLY)) < 0) ERROR;
 
-  int multiplicate = 1;
-  for(int i = strlen(argv[1]) - 1; i >= 0;i++) {
-    number += (argv[1][i] - '0') * multiplicate;
-    multiplicate *= 10;
-  }
+  number = strtol(argv[1], NULL, 10);
+	read_once = strtol(argv[3], NULL, 10);
+	search = argv[4];
 
-	multiplicate = 1;
-  for(int i = strlen(argv[1]) - 1; i >= 0;i++) {
-    read_once += (argv[3][i] - '0') * multiplicate;
-    multiplicate *= 10;
-  }
-
-	printf("%d %d\n", number, read_once);
-
-  if ((threads = malloc(number * sizeof(pthread_t))) == NULL) ERROR;
+  if ((threads = calloc(number,sizeof(pthread_t))) == NULL) ERROR;
 	if(pthread_mutex_init(&mutex, NULL) < 0) ERROR;
   for(int i = 0; i < number; i++) {
-    if (pthread_create(&(threads[i]), NULL, &readLine, NULL) != 0) ERROR;
+    if (pthread_create(&(threads[i]), NULL, readLine, NULL) != 0) ERROR;
+		#ifdef V3
+			pthread_detach(threads[i]);
+		#endif
   }
 
+	#ifndef V3
   for(int i = 0; i < number; i++) {
     if (pthread_join(threads[i], NULL) != 0) ERROR;
   }
+	#endif
 
 	if (close(fd) < 0) ERROR;
 	if(pthread_mutex_destroy(&mutex) < 0) ERROR;
