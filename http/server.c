@@ -11,7 +11,7 @@
 #include <signal.h>
 
 #ifndef MYPORT
-#define MYPORT 2000 // port z ktorym beda sie laczyc clienci..
+#define MYPORT 80 // port z ktorym beda sie laczyc clienci..
 #endif
 #define BACKLOG 10 // ilosc polaczen oczekujacych w kolejce
 
@@ -59,9 +59,8 @@ int main( int argc, char * argv[] )
 
     if ((plik = fopen( "index.html", "r" )) == NULL) ERROR;
 
-    while( feof( plik ) == 0 ) // petla wpisujaca plik index do tablicy
-    {
-        fscanf( plik, "%c", & dane[ i ] );
+    while( feof( plik ) == 0 ) {
+        fscanf( plik, "%c", & dane[i] );
         i++;
     }
 
