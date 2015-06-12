@@ -1,9 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -pedantic -std=gnu11 -lpthread
 
-all: main
+all: client server
 
-main:
+client:
+	$(CC) $(CFLAGS) $@.c -o $@.run
+
+server:
 	$(CC) $(CFLAGS) $@.c -o $@.run
 
 .PHONY: clean
