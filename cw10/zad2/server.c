@@ -2,17 +2,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-
 #include <string.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <signal.h>
-
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/un.h>
+
+#define ERROR {printf("FATAL (line %d): %s\n", __LINE__, strerror(errno)); \
+				exit(errno);}
 
 int sockets[10];
 int socket_net, socket_unix, number = 0;
@@ -27,7 +28,7 @@ typedef struct msg
 int exception (int ret, char* msg)
 {
     if(ret == -1)
-    {   
+    {
         printf("%s\n", msg);
         perror("");
         exit(-1);
@@ -52,7 +53,7 @@ void exitme()
     exception(close(socket_unix), "Close error.");
     exception(unlink(file), "Unlink error.");
 }
- 
+
 void trap_signal(int sig, void (*handler)(void))
 {
     struct sigaction act_usr;
@@ -67,7 +68,7 @@ void init(char *path)
 {
     file = path;
     trap_signal(SIGINT, &exit_handler);
-    exception(atexit(&exitme), "Couldn't set cleaning function."); 
+    exception(atexit(&exitme), "Couldn't set cleaning function.");
 }
 
 void create_unix_socket()
@@ -95,7 +96,7 @@ void create_net_socket(int port)
     addr_net.sin_family = AF_INET;
     addr_net.sin_port = htons(port);
     addr_net.sin_addr.s_addr = htonl(INADDR_ANY);
- 
+
     exception(bind(socket_net, (struct sockaddr*)&addr_net, sizeof(addr_net)), "Bind TCP socket failed.");
     exception(listen(socket_net, 10), "Listen failed.");
 }
@@ -127,8 +128,8 @@ int main(int argc, char *argv[])
         FD_SET(socket_net, &set);
         for(i = 0; i < number; i++)
             FD_SET(sockets[i], &set);
-        
-        
+
+
         exception(select(max, &set, NULL, NULL, NULL), "Select error.");
 
 
@@ -176,5 +177,5 @@ int main(int argc, char *argv[])
             }
     }
 
-    return 0;  
+    return 0;
 }
