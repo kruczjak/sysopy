@@ -1,263 +1,297 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <unistd.h>
-#include <sys/un.h>
+#include <errno.h>
+#include <string.h>
+#include <stdbool.h>
+#include <sys/types.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/select.h>
+#include <sys/un.h>
 
-#define LENGTH 10
-#define NAME_LENGTH 50
+#define TIMEOUT 30
+#define CLIENTS 10
 #define ERROR {printf("FATAL (line %d): %s\n", __LINE__, strerror(errno)); \
 				exit(errno);}
 
-typedef enum {
-	REGISTER,
-	SHOWLIST,
-	CLIENTINFO,
-	LOGOFF
-} option_t;
+typedef struct msg {
+    char from[31];
+    char content[480];
+    bool registration;
+} msg;
 
-typedef struct {
-	char name[NAME_LENGTH];
-	option_t option;
-	char infoname[NAME_LENGTH];
-} packet_t;
+typedef struct client_net {
+    struct sockaddr addr;
+    int timeout;
+} client_net;
 
-typedef struct {
-	char names[LENGTH][NAME_LENGTH];
-	int info;
-} response_t;
-
-typedef struct {
-	int nprocs;
-	int nusers;
-	float lavg;
-	int fmem;
-	int bmem;
-} info_t;
-
-int main(int argc, char ** argv) {
-
-  if (argc < 3) {
-    printf("Bad arguments!: %s <port> <path>", argv[0]);
-    exit(1);
-  }
-
-  int port = strtol(argv[1], NULL, 10);
-  char * path = argv[2];
-
-  unsigned int unix_flag = 1;
-
-  struct sockaddr_un sa,sc;
-  struct sockaddr_in si, sci;
-  int server_fd, server_inet_fd;
-
-  printf("Creating socket\n");
-  if ((server_fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0) ERROR;
-  printf("Creating inet socket\n");
-  if ((server_inet_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) ERROR;
-
-  printf("Sockets created\n");
-
-  memset(&sa, 0, sizeof(sa));
-  memset(&sc, 0, sizeof(sc));
-  memset(&si, 0, sizeof(si));
-  memset(&sci, 0, sizeof(sci));
-
-  si.sin_family = AF_INET;
-  inet_pton(AF_INET, "127.0.0.1", &(si.sin_addr.s_addr));
-  si.sin_port = htons(port);
-
-  sa.sun_family = AF_UNIX;
-  strcpy(sa.sun_path, path);
-  unlink(path);
-
-  sc.sun_family = AF_UNIX;
-
-  socklen_t fromlen = sizeof(sa);
-  socklen_t fromleni = sizeof(si);
-
-  if(bind(server_fd, (struct sockaddr *) &sa, sizeof(sa)) < 0 ) ERROR;
-  if(bind(server_inet_fd, (struct sockaddr *)&si, sizeof(si)) < 0) ERROR;
-
-  char names[LENGTH][NAME_LENGTH];
-
-	int i, j;
-	for(i = 0 ; i < LENGTH ; i++)
-		for(j = 0 ; j < NAME_LENGTH ; j++)
-			names[i][j] = (char) 0;
-
-	packet_t * buffer;
-  if ((buffer = (packet_t *) malloc(sizeof(packet_t))) == NULL) ERROR;
+typedef struct client_unix {
+    struct sockaddr_un addr;
+    int timeout;
+} client_unix;
 
 
-  while (1) {
-    printf("SERVER: receiving\n");
-		while(1)
-		{
-			int recsize = recvfrom(server_fd, (void *)buffer, sizeof(packet_t), MSG_DONTWAIT, (struct sockaddr *)&sa, &fromlen);
-			if(recsize > 0)
-			{
-				unix_flag = 1;
-				break;
-			}
-			recsize = recvfrom(server_inet_fd, (void *)buffer, sizeof(packet_t), MSG_DONTWAIT, (struct sockaddr *)&si, &fromleni);
-			if(recsize > 0)
-			{
-				unix_flag = 0;
-				break;
-			}
-		}
-		printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-		printf("SERVER: protocol UNIX=%d\n", unix_flag);
-
-		if(buffer->option == REGISTER)
-		{
-			printf("SERVER: registering");
-			register_id(buffer->name, names);
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-		}
-		else
-		if(buffer->option == LOGOFF)
-		{
-			printf("SERVER: Unregistering");
-			unregister_id(buffer->name, names);
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-		} else
-		if(buffer->option == SHOWLIST)
-		{
-			strcpy(sc.sun_path, buffer->name);
-
-			printf("SERVER: opening client socket");
-			int client_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-			int client_inet_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-			if(client_fd < 0)
-				ERROR;
-			if(client_inet_fd < 0)
-				ERROR;
+int socket_net, socket_unix, number_net = 0, number_unix = 0, expiring_client = -1;
+char *file;
+struct client_net data_net[CLIENTS];
+struct client_unix data_unix[CLIENTS];
 
 
-			printf("\t\t\033[32m[ OK ]\033[0m\n");
+int exception (int ret, char* msg) {
+    if(ret == -1) {
+        printf("%s\n", msg);
+        perror("");
+        exit(-1);
+    }
+    return ret;
+}
 
-			printf("SERVER: responding");
-			response_t response;
-			int i;
-			for(i = 0 ; i < LENGTH ; i++)
-				strcpy(response.names[i], names[i]);
+void exit_handler() {
+    exit(0);
+}
 
-			if(unix_flag == 1)
-			{
-				if(sendto(client_fd, &response, sizeof(response), 0, (struct sockaddr *)&sc, sizeof(sc)) < 0)
-					ERROR;
-			}
-			else
-			{
-				if(sendto(client_inet_fd, &response, sizeof(response), 0, (struct sockaddr *)&si, sizeof(si)) < 0)
-					ERROR;
-			}
+void exitme() {
+    if (close(socket_net) < 0) ERROR;
+    if (close(socket_unix) < 0) ERROR;
+    if (unlink(file) < 0) ERROR;
+}
 
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-		} else
-		if(buffer->option == CLIENTINFO)
-		{
-			char tmp[25];
-			sprintf(tmp, "%s", buffer->infoname);
+int find_expiring_client(int difference) {
+    int i, min = TIMEOUT + 1;
 
-			strcpy(sc.sun_path, tmp);
+    for(i = 0; i < number_net; i++) {
+        data_net[i].timeout -= difference;
 
-			printf("SERVER: opening client socket");
-			int client_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-			int client_inet_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-			if(client_fd < 0)
-				ERROR;
-			if(client_inet_fd < 0)
-				ERROR;
+        if(data_net[i].timeout == 0) {
+            number_net--;
+            data_net[i].addr = data_net[number_net].addr;
+            data_net[i].timeout = data_net[number_net].timeout;
+            i--;
+            continue;
+        }
 
-			memcpy(&sci, &si, sizeof(si));
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+        if(data_net[i].timeout < min) {
+            min = data_net[i].timeout;
+            expiring_client = i;
+        }
+    }
 
-			response_t r;
-			r.info = 1;
+    for(i = 0; i < number_unix; i++) {
+        data_unix[i].timeout -= difference;
 
-			printf("SERVER: sending info request");
-			if(unix_flag == 1)
-			{
-				if(sendto(client_fd, &r, sizeof(r), 0, (struct sockaddr *)&sc, sizeof(sc)) < 0)
-					ERROR;
-			}
-			else
-			{
-				if(sendto(client_inet_fd, &r, sizeof(r), 0, (struct sockaddr *)&si, sizeof(si)) < 0)
-					ERROR;
-			}
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+        if(data_unix[i].timeout == 0) {
+            number_unix--;
+            data_unix[i].addr = data_unix[number_unix].addr;
+            data_unix[i].timeout = data_unix[number_unix].timeout;
+            i--;
+            continue;
+        }
 
-			info_t info;
-			socklen_t fromlen = sizeof(sa);
+        if(data_unix[i].timeout < min) {
+            min = data_unix[i].timeout;
+            expiring_client = CLIENTS + i;
+        }
+    }
 
-			printf("SERVER: waiting for response");
-			int flag = 1, tries = 0;
-			while(flag)
-			{
-				int recsize;
-				if(unix_flag == 1)
-					recsize = recvfrom(server_fd, (void *)&info, sizeof(info_t), 0, (struct sockaddr *)&sa, &fromlen);
-				else
-					recsize = recvfrom(server_inet_fd, (void *)&info, sizeof(info_t), 0, (struct sockaddr *)&si, &fromleni);
-				if(recsize >= 0)
-					flag = 0;
-				else
-				if(tries++ > 100000)
-					break;
-			}
+    return min;
+}
 
-			if(flag == 1)
-			{
-				printf("SERVER: client not responding");
-				memset(&info, 0, sizeof(info));
-			}
+void alarm_handler() {
+    int difference, min;
 
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+    if(expiring_client < CLIENTS) {
+        number_net--;
+        data_net[expiring_client].addr = data_net[number_net].addr;
+        difference = data_net[expiring_client].timeout;
+        data_net[expiring_client].timeout = data_net[number_net].timeout;
+    } else {
+        expiring_client -= CLIENTS;
+        number_unix--;
+        data_unix[expiring_client].addr = data_unix[number_unix].addr;
+        difference = data_unix[expiring_client].timeout;
+        data_unix[expiring_client].timeout = data_unix[number_unix].timeout;
+    }
 
-			sprintf(tmp, "%s", buffer->name);
+    min = find_expiring_client(difference);
 
-			strcpy(sc.sun_path, tmp);
+    if(min < TIMEOUT + 1)
+        alarm(min);
+}
 
-			printf("SERVER: opening client socket");
+void trap_signal(int sig, void (*handler)(int)) {
+    struct sigaction act_usr;
+    if (sigemptyset(&act_usr.sa_mask) < 0) ERROR;
+    if (sigaddset(&act_usr.sa_mask, sig) < 0) ERROR;
+    act_usr.sa_handler = handler;
+    act_usr.sa_flags = 0;
+    if (sigaction(sig, &act_usr, NULL) < 0) ERROR;
+}
 
-			if(unix_flag == 1)
-			{
-				client_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-				if(client_fd < 0)
-					ERROR;
-			}
-			else
-			{
-				client_inet_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-				if(client_inet_fd < 0)
-					ERROR;
-			}
+void init(char *path) {
+    file = path;
+    trap_signal(SIGALRM, &alarm_handler);
+    trap_signal(SIGINT, &exit_handler);
+    if (atexit(&exitme) < 0) ERROR;
+}
 
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+void create_net_socket(int port) {
+    struct sockaddr_in addr_net;
 
-			printf("SERVER: sending info");
-			if(unix_flag == 1)
-			{
-				if(sendto(client_fd, &info, sizeof(info), 0, (struct sockaddr *)&sc, sizeof(sc)) < 0)
-					ERROR;
-			}
-			else
-			{
-				if(sendto(client_inet_fd, &info, sizeof(info), 0, (struct sockaddr *)&sci, sizeof(sci)) < 0)
-					ERROR;
-			}
-			printf("\t\t\t\t\033[32m[ OK ]\033[0m\n");
-		}
-  }
+    if ((socket_net = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) ERROR;
 
-  return 0;
+    memset(&addr_net, 0, sizeof(addr_net));
+    addr_net.sin_family = AF_INET;
+    addr_net.sin_port = htons(port);
+    addr_net.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (bind(socket_net, (struct sockaddr*)&addr_net, sizeof(addr_net)) < 0) ERROR;
+}
+
+void create_unix_socket() {
+    struct sockaddr_un addr_unix;
+
+    if ((socket_unix = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0) ERROR;
+
+    memset(&addr_unix, 0, sizeof(addr_unix));
+    addr_unix.sun_family = AF_UNIX;
+    strncpy(addr_unix.sun_path, file, sizeof(addr_unix.sun_path) - 1);
+    addr_unix.sun_path[sizeof(addr_unix.sun_path) - 1] = '\0';
+
+    if (bind(socket_unix, (struct sockaddr*)&addr_unix, sizeof(addr_unix)) < 0) ERROR;
+}
+
+
+int find_matching_client(struct sockaddr_in *addr_net, struct sockaddr_un *addr_unix, size_t size, bool net) {
+    int i;
+    if(net) {
+        for (i = 0; i < number_net; i++)
+            if(memcmp(&data_net[i].addr, addr_net, size) == 0)
+                return i;
+    } else {
+        for (i = 0; i < number_unix; i++)
+            if(memcmp(&data_unix[i].addr, addr_unix, size) == 0)
+                return i;
+    }
+
+    return -1;
+}
+
+
+void registration(struct sockaddr_in *addr_net, struct sockaddr_un *addr_unix, size_t size, bool net) {
+    int index, left, min;
+    index = find_matching_client(addr_net, addr_unix, size, net);
+    if(net) {
+        if(index == -1) {
+            memcpy(&data_net[number_net].addr, addr_net, size);
+            data_net[number_net].timeout = TIMEOUT;
+            number_net++;
+        } else if(index != expiring_client)
+            data_net[index].timeout = TIMEOUT;
+        else {
+            left = alarm(TIMEOUT + 1);
+            min = find_expiring_client(data_net[index].timeout - left);
+            data_net[index].timeout = TIMEOUT;
+            if(min < TIMEOUT + 1)
+                alarm(min);
+        }
+    } else {
+        if(index == -1) {
+            memcpy(&data_unix[number_unix].addr, addr_unix, size);
+            data_unix[number_unix].timeout = TIMEOUT;
+            number_unix++;
+
+        } else if(index != expiring_client - CLIENTS)
+            data_unix[index].timeout = TIMEOUT;
+        else {
+            left = alarm(TIMEOUT + 1);
+            min = find_expiring_client(data_unix[index].timeout - left);
+            data_unix[index].timeout = TIMEOUT;
+            if(min < TIMEOUT + 1)
+                alarm(min);
+        }
+    }
+}
+
+void dismiss(msg message, struct sockaddr_in *addr_net, struct sockaddr_un *addr_unix, size_t size_net, size_t size_unix, bool net) {
+    int i, index;
+
+    if(net) {
+        index = find_matching_client(addr_net, addr_unix, size_net, net);
+        for(i = 0; i < number_unix; i++)
+            if (sendto(socket_unix, &message, sizeof(msg), 0, (struct sockaddr*)&data_unix[i].addr, size_unix) < 0) ERROR;
+
+        for(i = 0; i < number_net; i++)
+            if(i != index)
+                if (sendto(socket_net, &message, sizeof(msg), 0, (struct sockaddr*)&data_net[i].addr, size_net) < 0) ERROR;
+    } else {
+        index = find_matching_client(addr_net, addr_unix, size_unix, net);
+        for(i = 0; i < number_unix; i++)
+            if(i != index)
+                if (sendto(socket_unix, &message, sizeof(msg), 0, (struct sockaddr*)&data_unix[i].addr, size_unix) < 0) ERROR;
+
+        for(i = 0; i < number_net; i++)
+            if (sendto(socket_net, &message, sizeof(msg), 0, (struct sockaddr*)&data_net[i].addr, size_net) < 0) ERROR;
+    }
+}
+
+
+
+int main(int argc, char *argv[]) {
+    fd_set set;
+    int max;
+    msg message;
+
+    struct sockaddr_in addr_net;
+    socklen_t size_net = sizeof(addr_net);
+
+    struct sockaddr_un addr_unix;
+    socklen_t size_unix = sizeof(addr_unix);
+
+    if(argc != 3) {
+        printf("Bad arguments: server.run <port> <path>\n");
+        exit(1);
+    }
+
+    init(argv[2]);
+    create_unix_socket();
+    create_net_socket(atoi(argv[1]));
+
+
+    if(socket_net > socket_unix)
+        max = socket_net + 1;
+    else
+        max = socket_unix + 1;
+
+    while(true) {
+        FD_ZERO(&set);
+        FD_SET(socket_unix, &set);
+        FD_SET(socket_net, &set);
+
+        if (select(max, &set, NULL, NULL, NULL) < 0) ERROR;
+
+        if(FD_ISSET(socket_net, &set)) {
+            memset(&message, 0, sizeof(msg));
+            if (recvfrom(socket_net, &message, sizeof(msg), 0, (struct sockaddr*)&addr_net, &size_net) < 0) ERROR;
+
+            if(message.registration)
+                registration(&addr_net, NULL, size_net, true);
+            else
+                dismiss(message, &addr_net, NULL, size_net, size_unix, true);
+        }
+
+        if(FD_ISSET(socket_unix, &set)) {
+            memset(&message, 0, sizeof(msg));
+            if (recvfrom(socket_unix, &message, sizeof(msg), 0, (struct sockaddr*)&addr_unix, &size_unix) < 0) ERROR;
+
+            if(message.registration)
+               registration(NULL, &addr_unix, size_unix, false);
+            else
+                dismiss(message, NULL, &addr_unix, size_net, size_unix, false);
+        }
+    }
+
+    return 0;
 }

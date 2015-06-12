@@ -1,386 +1,196 @@
-//!TODO pytanie sie o siebie nie dziala
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
 #include <sys/types.h>
+#include <signal.h>
+#include <termios.h>
+#include <pthread.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
-#include <unistd.h>
-#include <pthread.h>
 
-#define LENGTH 10
-#define NAME_LENGTH 50
+#define TIMEOUT 30
 #define ERROR {printf("FATAL (line %d): %s\n", __LINE__, strerror(errno)); \
 				exit(errno);}
-        
-typedef enum {
-	REGISTER,
-	SHOWLIST,
-	CLIENTINFO,
-	LOGOFF
-} option_t;
 
-typedef struct {
-	char name[NAME_LENGTH];
-	option_t option;
-	char infoname[NAME_LENGTH];
-} packet_t;
-
-typedef struct {
-	char names[LENGTH][NAME_LENGTH];
-	int info;
-} response_t;
-
-typedef struct {
-	int nprocs;
-	int nusers;
-	float lavg;
-	int fmem;
-	int bmem;
-} info_t;
-
-int server_fd;
-int client_fd;
-struct sockaddr_un sa, sc;
-struct sockaddr_in si, sci;
-
-pthread_mutex_t mutex;
-pthread_cond_t cv;
-int play = 1;
-
-void * thread_responder(void * args)
+typedef struct msg
 {
-	response_t response;
-	while(1)
-	{
-		response.info = 0;
-		pthread_mutex_lock(&mutex);
+    char from[31];
+    char content[480];
+    bool registration;
+} msg;
 
-		while(!play)
-			pthread_cond_wait(&cv, &mutex);
+int sock, curr = 0, size;
+char buf[480], nick[31];
 
-		pthread_mutex_unlock(&mutex);
+struct sockaddr_in addr_net;
+struct sockaddr_un addr_unix;
+struct sockaddr* server;
 
-		socklen_t fromlen = sizeof(sc);
-		// Nie musi sprawdzac EAGAIN
-		recvfrom(client_fd, (void *) &response, sizeof(response), MSG_DONTWAIT, (struct sockaddr *)&sc, &fromlen);
-			//ERROR;
-
-		if(response.info == 1)
-		{
-			printf("CLIENT: preparing info");
-			info_t info;
-
-			FILE *fp = popen("ps -e | wc -l", "r");
-			fscanf(fp, "%d", &info.nprocs);
-			pclose(fp);
-			info.nprocs--;
-
-			fp = popen("who | awk '{ print $1 }' | uniq | wc -l", "r");
-			fscanf(fp, "%d", &info.nusers);
-			pclose(fp);
-
-			fp = fopen("/proc/loadavg", "r");
-			fscanf(fp, "%f", &info.lavg);
-			fclose(fp);
-
-			fp = fopen("/proc/meminfo", "r");
-			char * tmp = (char *) malloc(sizeof(char) * 50);
-			fscanf(fp, "%s %d %s\n", tmp, &info.fmem, tmp);
-			fscanf(fp, "%s %d %s\n", tmp, &info.bmem, tmp);
-			free(tmp);
-			fclose(fp);
-
-			info.bmem -= info.fmem;
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-
-
-			printf("CLIENT: sending info response");
-			if(sendto(server_fd, (void *) &info, sizeof(info_t), 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
-				ERROR;
-			printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-		}
-	}
+void exit_handler() {
+    exit(0);
 }
 
-void pause_thread()
-{
-	pthread_mutex_lock(&mutex);
-	play = 0;
-	pthread_mutex_unlock(&mutex);
+void exitme() {
+    if (shutdown(sock, SHUT_RDWR) < 0) ERROR;
+    if (close(sock) < 0) ERROR;
+    if (unlink(nick) < 0) ERROR;
 }
 
-void play_thread()
-{
-	pthread_mutex_lock(&mutex);
-	play = 1;
-	pthread_cond_signal(&cv);
-	pthread_mutex_unlock(&mutex);
+void alarm_handler() {
+    msg message;
+    message.registration = true;
+    if (sendto(sock, &message, sizeof(msg), 0, server, size) < 0) ERROR;
+    alarm(TIMEOUT - 5);
 }
 
-void getname(char * tab)
-{
-	FILE * fp = popen("hostname", "r");
-	if(fp == NULL)
-		ERROR;
-
-	char tmp[NAME_LENGTH];
-	char host[NAME_LENGTH];
-	char domain[NAME_LENGTH];
-	fscanf(fp, "%s", host);
-	pclose(fp);
-
-	fp = popen("domainname", "r");
-	if(fp == NULL)
-		ERROR;
-
-	fscanf(fp, "%s", domain);
-	pclose(fp);
-
-	sprintf(tmp, "%s.%s", host, domain);
-
-	strcpy(tab, tmp);
+void trap_signal(int sig, void (*handler)(int)) {
+    struct sigaction act_usr;
+    if (sigemptyset(&act_usr.sa_mask) < 0) ERROR;
+    if (sigaddset(&act_usr.sa_mask, sig) < 0) ERROR;
+    act_usr.sa_handler = handler;
+    act_usr.sa_flags = 0;
+    if (sigaction(sig, &act_usr, NULL) < 0) ERROR;
 }
 
-int main(int argc, char * argv[])
-{
-	if(argc < 2)
-	{
-		printf("usage : %s [unix | inet] [port ip | path]\n", argv[0]);
-		exit(1);
-	}
+void init() {
+    trap_signal(SIGINT, &exit_handler);
+    if (atexit(&exitme) < 0) ERROR;
+    trap_signal(SIGALRM, &alarm_handler);
 
-	unsigned int unix_flag = -1;
-	char * path = NULL;
-	unsigned int port = 0;
-	char * ip = NULL;
+    alarm_handler();
 
-	if(!strcmp(argv[1], "unix"))
-	{
-		unix_flag = 1;
-		path = argv[2];
-	}
-	else
-	if(!strcmp(argv[1], "inet"))
-	{
-		unix_flag = 0;
-		port = atoi(argv[2]);
-		if(argc < 4)
-		{
-			printf("Bad flags!\n");
-			exit(1);
-		}
-		ip = argv[3];
-	}
+    struct termios term;
+    tcgetattr( STDIN_FILENO, &term);
+    term.c_lflag &= ~(ICANON);
+    tcsetattr( STDIN_FILENO, TCSANOW, &term);
 
-	if(unix_flag == -1)
-	{
-		printf("Bad flag!\n");
-		exit(1);
-	}
+    memset(buf, 0, sizeof(buf));
+    printf("\n\n%s: ", nick);
 
-	int bytes;
+}
 
-	char CLIENT_SOCKET_NAME[NAME_LENGTH];
-	getname(CLIENT_SOCKET_NAME);
+void* writer(void* arg) {
+    msg message;
+    fd_set set;
 
-	printf("CLIENT: opening socket");
-	if(unix_flag == 1)
-		server_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-	else
-		server_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if(server_fd < 0)
-		ERROR;
+    while(true) {
+        FD_ZERO(&set);
+        FD_SET(sock, &set);
 
-	printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+        if (select(sock + 1, &set, NULL, NULL, NULL) < 0) ERROR;
 
-	memset(&sa, 0, sizeof(sa));
-	memset(&sc, 0, sizeof(sc));
-	memset(&si, 0, sizeof(si));
-	memset(&sci, 0, sizeof(sci));
+        if(FD_ISSET(sock, &set)) {
+            memset(&message, 0, sizeof(msg));
+            if(recvfrom(sock, &message, sizeof(msg), 0, NULL, 0) > 0) {
+                fflush(stdout);
 
-	si.sin_family = AF_INET;
-	si.sin_port = htons(port);
+                printf("%s: %s\n", message.from, message.content);
 
-	if(!unix_flag)
-		si.sin_addr.s_addr = inet_addr(ip);
+                printf("\n%s: ", nick);
+                buf[curr] = 0;
+                printf("%.*s", curr, buf);
+                fflush(stdout);
+            }
+        }
+    }
+}
 
-	sa.sun_family = AF_UNIX;
-	strcpy(sa.sun_path, path);
+void send_message() {
+    msg message;
+    memset(&message, 0, sizeof(msg));
+    message.registration = false;
+    if (strcpy(message.from, nick) == NULL) ERROR;
+    if (strncpy(message.content, buf, curr-1) == NULL) ERROR;
+    if (sendto(sock, &message, sizeof(msg), 0, server, size) < 0) ERROR;
+}
 
-	sc.sun_family = AF_UNIX;
-	strcpy(sc.sun_path, CLIENT_SOCKET_NAME);
+void* reader(void* arg) {
+    while(true) {
+        buf[curr++] = getchar();
 
-	printf("CLIENT: opening client socket");
-	if(unix_flag == 1)
-	{
-		client_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-		if(client_fd < 0)
-			ERROR;
-	} else
-	{
-		client_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if(client_fd < 0)
-			ERROR;
-	}
-	printf("\t\t\033[32m[ OK ]\033[0m\n");
+        if(buf[curr - 1] == '\x7f') {
+            if(--curr)
+                curr--;
+            printf("%s: ", nick);
+            printf("%.*s", curr, buf);
+        }
+        else if(curr > 2 && buf[curr - 3] == '\x1b' && buf[curr - 2] == '[') {
+            curr -= 3;
+            printf("%s: ", nick);
+            printf("%.*s", curr, buf);
+        } else if(buf[curr - 1] == '\n') {
 
-	printf("CLIENT: binding client socket");
-	if(unix_flag == 1)
-		if(bind(client_fd, (struct sockaddr *)&sc, sizeof(sc)) < 0)
-			ERROR;
-	printf("\t\t\033[32m[ OK ]\033[0m\n");
+            if(curr != 1) {
+                send_message();
+                printf("%s: %.*s\n", nick, curr-1, buf);
+                memset(buf, 0, sizeof(buf));
+            }
 
-	printf("CLIENT: creating register packet");
-	packet_t * packet;
-	packet = (packet_t *) malloc(sizeof(packet_t));
-	if(packet == NULL)
-		ERROR;
-	printf("\t\033[32m[ OK ]\033[0m\n");
+            curr = 0;
+            printf("\n%s: ", nick);
+        }
+    }
+}
 
-	packet->option = REGISTER;
-	getname(packet->name);
+void create_net_socket(char *address, int port) {
+    if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) ERROR;
 
-	printf("CLIENT: registering");
-	if(unix_flag == 1)
-	{
-		bytes = sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&sa, sizeof(sa));
-		if(bytes < 0)
-			ERROR;
-	} else
-	{
-		bytes = sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&si, sizeof(si));
-		if(bytes < 0)
-			ERROR;
-	}
-	printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+    memset(&addr_net, 0, sizeof(addr_net));
+    addr_net.sin_family = AF_INET;
+    addr_net.sin_port = htons(port);
+    addr_net.sin_addr.s_addr = inet_addr(address);
 
-	printf("CLIENT: creating info thread");
-	pthread_t responder;
-	if(pthread_create(&responder, NULL, thread_responder, NULL) < 0)
-		ERROR;
-	printf("\t\t\033[32m[ OK ]\033[0m\n");
+    server = (struct sockaddr*)&addr_net;
+    size = sizeof(addr_net);
+    init();
+}
 
-	while(1)
-	{
-		printf("Choose option\n");
-		printf("1) Show client list\n");
-		printf("2) Show client info\n");
-		printf("3) End session\n");
+void create_unix_socket(char *filename) {
 
-		char opt;
-		scanf("%c", &opt);
+    if ((sock = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0) ERROR;
 
-		switch(opt)
-		{
-			case '2':
-				packet->option = CLIENTINFO;
-				printf("ID: ");
-				scanf("%s", packet->infoname);
+    memset(&addr_unix, 0, sizeof(addr_unix));
+    addr_unix.sun_family = AF_UNIX;
+    if (strncpy(addr_unix.sun_path, nick, sizeof(addr_unix.sun_path) - 1) == NULL) ERROR;
+    addr_unix.sun_path[sizeof(addr_unix.sun_path) - 1] = '\0';
 
-				printf("CLIENT: sending info request");
-				if(unix_flag == 1)
-				{
-					if(sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
-						ERROR;
-				} else
-				{
-					if(sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&si, sizeof(si)) < 0)
-						ERROR;
-				}
-				printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+    if (bind(sock, (struct sockaddr*)&addr_unix, sizeof(addr_unix)) < 0) ERROR;
 
-				info_t info;
+    memset(&addr_unix, 0, sizeof(addr_unix));
+    addr_unix.sun_family = AF_UNIX;
+    if (strncpy(addr_unix.sun_path, filename, sizeof(addr_unix.sun_path) - 1) == NULL) ERROR;
+    addr_unix.sun_path[sizeof(addr_unix.sun_path) - 1] = '\0';
 
-				printf("CLIENT: waiting for response");
-				socklen_t fromlen = sizeof(sc);
-				socklen_t fromleni = sizeof(si);
-				if(unix_flag == 1)
-				{
-					if(recvfrom(client_fd, (void *) &info, sizeof(info), 0, (struct sockaddr *)&sc, &fromlen) < 0)
-						ERROR;
-				} else
-				{
-					if(recvfrom(client_fd, (void *) &info, sizeof(info), 0, (struct sockaddr *)&sci, &fromleni) < 0)
-						ERROR;
-				}
-				printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+    server = (struct sockaddr*)&addr_unix;
+    size = sizeof(addr_unix);
+    init();
 
-				printf("NPROCS  =%d\n", info.nprocs);
-				printf("NUSERS  =%d\n", info.nusers);
-				printf("LOAD AVG=%f\n", info.lavg);
-				printf("FREE MEM=%d\n", info.fmem);
-				printf("BUSY MEM=%d\n", info.bmem);
+}
 
-				break;
-			case '3':
-				packet->option = LOGOFF;
 
-				printf("CLIENT: sending logoff request");
-				if(unix_flag == 1)
-				{
-					if(sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
-						ERROR;
-				} else
-				{
-					if(sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&si, sizeof(si)) < 0)
-						ERROR;
-				}
-				printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+int main(int argc, char *argv[]) {
+    pthread_t reader_t, writer_t;
 
-				if(unix_flag == 1)
-					unlink(CLIENT_SOCKET_NAME);
-				exit(1);
+    if(argc == 4 && strcmp(argv[2], "local") == 0) {
+        if (strcpy(nick, argv[1]) == NULL) ERROR;
+        create_unix_socket(argv[3]);
+    } else if(argc == 5 && strcmp(argv[2], "remote") == 0) {
+        if (strcpy(nick, argv[1]) == NULL) ERROR;
+        create_net_socket(argv[3], atoi(argv[4]));
+    } else {
+      printf("Bad arguments: client.run <id> <local/remote> <ip port | if local>|<path | if remote>\n");
+      exit(1);
+    }
 
-				break;
-			case '1':
-				packet->option = SHOWLIST;
-				response_t response;
+    if (pthread_create(&writer_t, NULL, writer, NULL) < 0) ERROR;
+    if (pthread_create(&reader_t, NULL, reader, NULL) < 0) ERROR;
+    if (pthread_join(writer_t, NULL) < 0) ERROR;
+    if (pthread_join(reader_t, NULL) < 0) ERROR;
 
-				printf("CLIENT: sending request");
-				if(unix_flag == 1)
-				{
-					if(sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
-						ERROR;
-				} else
-				{
-					if(sendto(server_fd, packet, sizeof(packet_t), 0, (struct sockaddr *)&si, sizeof(si)) < 0)
-						ERROR;
-				}
-				printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-
-				pause_thread();
-
-				printf("CLIENT: waiting for response");
-				fromlen = sizeof(sc);
-				if(unix_flag == 1)
-				{
-					if(recvfrom(client_fd, (void *) &response, sizeof(response), 0, (struct sockaddr *)&sc, &fromlen) < 0)
-						ERROR;
-				} else
-				{
-					if(recvfrom(client_fd, (void *) &response, sizeof(response), 0, (struct sockaddr *)&sci, &fromleni) < 0)
-						ERROR;
-				}
-				printf("\t\t\t\033[32m[ OK ]\033[0m\n");
-
-				play_thread();
-
-				int i = 0;
-				while(i < LENGTH && strlen(response.names[i]) > 0)
-						printf("%s\n", response.names[i++]);
-
-				break;
-
-			default:
-				printf("Bad option\n");
-				continue;
-		}
-
-	}
-
-	return EXIT_SUCCESS;
+    exit(0);
 }
